@@ -109,8 +109,13 @@ function handleEvents() {
         break;
       case 'weapon':
         renderer.burst(e.x, e.z, 0xfff3a8, 16, 1.3);
-        renderer.popNumber(e.x, e.z, WEAPONS[e.weapon].name, '#fff3a8', 3.2, 1.5);
+        renderer.popNumber(e.x, e.z, WEAPONS[e.weapon].name + ' ' + '★'.repeat(e.tier), '#fff3a8', 3.2, 1.5);
         audio.play('weapon');
+        break;
+      case 'crateMiss':
+        renderer.burst(e.x, e.z, 0x2c3340, 8);
+        renderer.popNumber(e.x, e.z, 'Missed!', '#ff9a9a', 3, 1.2);
+        audio.play('gate-bad');
         break;
       case 'gate':
         renderer.popNumber(e.x, e.z + 2, e.label, e.good ? '#9fe4ff' : '#ff9a9a', 3.2, 1.7);

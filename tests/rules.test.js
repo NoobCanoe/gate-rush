@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyGate, gateLabel, gateIsGood, upgradeCost, startArmy, volleyDamage, fireInterval,
-  unlockedWeapons, formatCount, WEAPON_ORDER, ARMY_CAP,
+  unlockedWeapons, formatCount, WEAPON_ORDER, ARMY_CAP, killRate, MAX_TIER,
 } from '../src/rules.js';
 
 test('gates add, multiply, subtract and divide', () => {
@@ -69,4 +69,23 @@ test('counts are formatted compactly', () => {
   assert.equal(formatCount(1234567), '1.2M');
   assert.equal(formatCount(2500000000), '2.5B');
   assert.equal(formatCount(999999), '1M');
+});
+
+test('army size matters a lot to firepower', () => {
+  const half = volleyDamage(200, 'rifle', {}) / volleyDamage(400, 'rifle', {});
+  assert.ok(half < 0.66 && half > 0.55, `half the army gives ${half.toFixed(2)} of the damage`);
+});
+
+test('each power tier raises damage', () => {
+  assert.ok(volleyDamage(50, 'rifle', {}, 2) > volleyDamage(50, 'rifle', {}, 1) * 1.3);
+  assert.ok(MAX_TIER >= 4);
+});
+
+test('kill rate rises with army, tier and upgrades', () => {
+  const hp = 200; // tough enough that damage, not shot count, is the limit
+  const base = killRate(100, 'rifle', {}, hp);
+  assert.ok(killRate(400, 'rifle', {}, hp) > base * 1.5);
+  assert.ok(killRate(100, 'rifle', {}, hp, 3) > base);
+  assert.ok(killRate(100, 'rifle', { upgrades: { damage: 5 } }, hp) > base);
+  assert.ok(killRate(100, 'rifle', {}, hp * 2) < base);
 });

@@ -2,32 +2,33 @@
 import { createRun, stepRun, runResult, MAX_STEP } from '../src/sim.js';
 import { applyGate, upgradeCost, unlockedWeapons, ROAD_HALF } from '../src/rules.js';
 
-function steerFor(run, wantBest, dodge) {
+function steerFor(run, pick, dodge, state) {
   let tx = run.x;
   const ahead = run.items.filter((it) => it.alive && !it.passed && it.z > run.z);
   const gate = ahead.find((it) => it.type === 'gates' && it.z - run.z < 20);
-  const block = ahead.find(
-    (it) => (it.type === 'barrel' || it.type === 'crate') && it.z - run.z < 7 && Math.abs(it.x - run.x) < 1.7,
-  );
+  const barrel = ahead.find((it) => it.type === 'barrel' && it.z - run.z < 7 && Math.abs(it.x - run.x) < 1.7);
   const crate = ahead.find((it) => it.type === 'crate' && it.z - run.z < 40);
   if (gate) {
-    const l = applyGate(run.army, gate.left);
-    const r = applyGate(run.army, gate.right);
-    const leftBetter = l > r;
+    if (state.gate !== gate) { state.gate = gate; state.count++; }
+    const leftBetter = applyGate(run.army, gate.left) > applyGate(run.army, gate.right);
+    const wantBest = pick === 'best' || (pick === 'alternate' && state.count % 2 === 0);
     tx = (wantBest ? leftBetter : !leftBetter) ? -2.5 : 2.5;
-  } else if (block && dodge) {
-    tx = block.x + (block.x >= 0 ? -2.6 : 2.6);
+  } else if (barrel && dodge) {
+    tx = barrel.x + (barrel.x >= 0 ? -2.6 : 2.6);
   } else if (crate && dodge) {
-    tx = crate.x;
+    // line up to shoot it, then step aside at the last moment if it is still standing
+    tx = crate.z - run.z < 4 ? crate.x + (crate.x >= 0 ? -2.6 : 2.6) : crate.x;
   }
-  return tx / ROAD_HALF;
+  return tx / (ROAD_HALF - 0.5);
 }
 
-export function playLevel(n, save, { best = true, dodge = true } = {}) {
+export function playLevel(n, save, { pick = 'best', dodge = true } = {}) {
   const run = createRun(n, save);
+  const state = { gate: null, count: 0 };
   let armyAtBoss = null;
   while (run.phase !== 'won' && run.phase !== 'lost' && run.t < 400) {
-    stepRun(run, MAX_STEP, steerFor(run, best, dodge), save);
+    stepRun(run, MAX_STEP, steerFor(run, pick, dodge, state), save);
+    run.events.length = 0;
     if (armyAtBoss === null && run.phase === 'boss') armyAtBoss = run.army;
   }
   return { run, result: run.phase === 'won' || run.phase === 'lost' ? runResult(run, save) : null, armyAtBoss };

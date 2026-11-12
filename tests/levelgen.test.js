@@ -35,19 +35,23 @@ test('every level obeys the layout rules', () => {
       }
       if (it.type === 'crate') {
         crates++;
-        assert.ok(unlockedWeapons(n).includes(it.weapon), `unlocked L${n}`);
-        assert.notEqual(it.weapon, 'rifle');
+        if (it.weapon !== null) {
+          assert.ok(unlockedWeapons(n).includes(it.weapon), `unlocked L${n}`);
+          assert.notEqual(it.weapon, 'rifle');
+        }
       }
     }
     assert.equal(lv.items[0].type, 'gates');
     assert.ok(gates >= 6, `gate rows L${n}`);
-    assert.ok(crates <= (n < 4 ? 1 : 2), `crate count L${n}`);
-    if (n >= 2) assert.ok(crates >= 1, `has a crate L${n}`);
+    assert.ok(crates >= 2 && crates <= 5, `crate count L${n}: ${crates}`);
   }
 });
 
-test('level 1 has no weapon crate', () => {
-  assert.ok(!generateLevel(1).items.some((i) => i.type === 'crate'));
+test('level 1 offers power upgrades, later levels new weapons too', () => {
+  const crates = (n) => generateLevel(n).items.filter((i) => i.type === 'crate');
+  assert.ok(crates(1).every((c) => c.weapon === null));
+  assert.ok(crates(2).some((c) => c.weapon === 'mg'));
+  assert.ok(crates(12).some((c) => c.weapon === null), 'power crates still appear later');
 });
 
 test('every fifth level has a big boss and themes rotate', () => {
@@ -58,18 +62,38 @@ test('every fifth level has a big boss and themes rotate', () => {
   assert.equal(generateLevel(21).theme, 0);
 });
 
-test('boss health grows with level', () => {
-  const hp = (n) => generateLevel(n).boss.hp;
-  assert.ok(hp(6) < hp(7) && hp(7) < hp(8));
-  assert.ok(generateLevel(3).boss.dps >= 1);
+test('the boss is sized to the level', () => {
+  for (const n of [1, 7, 30, 9999]) {
+    const b = generateLevel(n).boss;
+    assert.ok(Number.isFinite(b.hp) && b.hp > 0 && b.dps >= 1, `L${n}`);
+  }
+  assert.ok(generateLevel(30).boss.hp > generateLevel(1).boss.hp * 5);
 });
 
-test('every level has an enemy flow that grows with the level', () => {
+test('the enemy stream is fixed by the level and thickens along it', () => {
   for (let n = 1; n <= 40; n++) {
     const f = generateLevel(n).flow;
     assert.ok(f.every > 0 && f.every <= 2, `interval L${n}`);
-    assert.ok(Number.isInteger(f.lo) && Number.isInteger(f.hi) && f.lo >= 2 && f.hi >= f.lo, `sizes L${n}`);
     assert.ok(f.hp > 0);
+    assert.ok(f.steps.length >= 6 && f.steps[0].z === 0, `steps L${n}`);
+    for (const st of f.steps) assert.ok(st.count > 0 && Number.isFinite(st.count));
+    assert.ok(f.steps[f.steps.length - 1].count > f.steps[0].count * 3, `thickens L${n}`);
   }
-  assert.ok(generateLevel(20).flow.hi > generateLevel(1).flow.hi);
+});
+
+test('gate pairs pose a real question', () => {
+  let cross = 0;
+  let traps = 0;
+  let total = 0;
+  for (let n = 1; n <= 30; n++) {
+    for (const it of generateLevel(n).items) {
+      if (it.type !== 'gates') continue;
+      total++;
+      const ops = [it.left.op, it.right.op];
+      if (ops.includes('mul') && ops.includes('add')) cross++;
+      if (ops.includes('sub') || ops.includes('div')) traps++;
+    }
+  }
+  assert.ok(cross / total > 0.2, `add-versus-multiply pairs: ${cross}/${total}`);
+  assert.ok(traps / total > 0.2 && traps / total < 0.5, `trap pairs: ${traps}/${total}`);
 });

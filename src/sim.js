@@ -2,7 +2,7 @@
 // audio and UI read this state and the events it emits.
 import {
   ROAD_HALF, RUN_SPEED, WEAPONS, applyGate, gateIsGood, gateLabel, startArmy,
-  volleyDamage, fireInterval, coinMult, WEAPON_ORDER,
+  volleyDamage, fireInterval, coinMult, WEAPON_ORDER, MAX_TIER, bulletCount, rocketCount,
 } from './rules.js';
 import { generateLevel } from './levelgen.js';
 
@@ -14,12 +14,10 @@ const SPAWN_AHEAD = 55;
 const ENEMY_SPEED = 5;
 const ENEMY_DRIFT = 2;
 const FLOW_GRACE = 1.5; // seconds before the first enemies appear
-const FLOW_START = 0.5; // group-size multiplier at the start of a level...
-const FLOW_END = 1.6; // ...and at the end
 const BULLET_SPEED = 60;
 const AIM_HALF_WIDTH = 3;
 const BEAM_HALF_WIDTH = 3; // a broad sheet of light, as wide as the army's aim
-const SPREAD_ANGLES = [-0.21, -0.105, 0, 0.105, 0.21]; // radians, about ±12°
+const SPREAD_ANGLES = [-0.21, -0.105, 0, 0.105, 0.21]; // radians, about ±12° (SPREAD_PELLETS of them)
 const RADIUS = { enemy: 0.8, barrel: 1.1, crate: 1.1, boss: 2.6 };
 const BOSS_START_AHEAD = 20;
 const BOSS_SPEED = 2;
@@ -40,6 +38,7 @@ export function createRun(levelNumber, save) {
     z: 0,
     army: startArmy(save),
     weapon: 'rifle',
+    tier: 1,
     coins: 0,
     kills: 0,
     fireTimer: 0,
@@ -132,10 +131,8 @@ function crossItems(run) {
     } else if (Math.abs(run.x - it.x) < 1.2) {
       it.alive = false;
       if (it.type === 'crate') {
-        // Walking into a weapon pedestal simply picks the weapon up.
-        run.weapon = it.weapon;
-        run.fireTimer = 0;
-        run.events.push({ type: 'weapon', weapon: it.weapon, x: it.x, z: it.z });
+        // Knocked over unopened: no harm done, but nothing gained either.
+        run.events.push({ type: 'crateMiss', x: it.x, z: it.z });
       } else {
         loseSoldiers(run, Math.ceil(it.hp / 40), 'crash');
       }
@@ -178,25 +175,6 @@ function random(run) {
 }
 
 // The constant stream: small groups keep arriving, thicker as the level goes on.
-// How many kills per second the army can manage against enemies of this
-// toughness: limited by its damage and by how many shots it gets off.
-const REACH = { bullet: 6, spread: 2, rocket: 6, beam: 30 }; // most enemies one shot can deal with
-function killRate(run, save, hp) {
-  const weapon = WEAPONS[run.weapon];
-  const interval = fireInterval(run.weapon, save);
-  const volley = volleyDamage(run.army, run.weapon, save);
-  let shots = 1;
-  if (weapon.kind === 'bullet') shots = bulletCount(run.army);
-  else if (weapon.kind === 'spread') shots = SPREAD_ANGLES.length;
-  else if (weapon.kind === 'rocket') shots = rocketCount(run.army);
-  // A shot kills as many as its damage allows, up to what it can physically reach.
-  const perShot = Math.max(1, Math.min(REACH[weapon.kind], volley / shots / hp));
-  return Math.min(volley / interval / hp, (shots / interval) * perShot);
-}
-const bulletCount = (army) => Math.max(1, Math.min(6, Math.ceil(army / 12)));
-const rocketCount = (army) => Math.max(1, Math.min(4, Math.ceil(army / 15)));
-const FLOW_SHARE = 0.65; // the stream never asks for more than this share of the army's kill rate
-
 function flowEnemies(run, h, save) {
   const flow = run.level.flow;
   if (!flow) return;
@@ -205,15 +183,18 @@ function flowEnemies(run, h, save) {
     run.flowTimer += flow.every;
     const z = run.z + SPAWN_AHEAD;
     if (z > run.level.length + 8) continue; // leave the boss arena clear
-    const progress = Math.min(1, run.z / run.level.length);
-    let size = (flow.lo + random(run) * (flow.hi - flow.lo)) * (FLOW_START + (FLOW_END - FLOW_START) * progress);
+    // The stream is set by the level, not by the army facing it.
+    let step = flow.steps[0];
+    for (const st of flow.steps) {
+      if (st.z > z) break;
+      step = st;
+    }
+    const base = step.count;
+    const size = base * (0.8 + 0.4 * random(run));
     const cx = (random(run) * 2 - 1) * (ROAD_HALF - 1.2);
     const roll = random(run);
-    // Keep the player overpowered: a small army meets a thin stream, a huge one a flood.
-    const manageable = killRate(run, save, flow.hp) * flow.every * FLOW_SHARE;
-    size = Math.min(size, manageable);
     const count = size >= 1 ? Math.round(size) : (roll < size ? 1 : 0);
-    if (count > 0) spawnGroup(run, cx * 0.4, z, count, flow.hp, true);
+    if (count > 0) spawnGroup(run, cx * 0.4, z, count, step.hp || flow.hp, true);
   }
 }
 
@@ -290,9 +271,11 @@ function damage(run, target, amount) {
     run.coins += ref.coins;
     run.events.push({ type: 'barrelDown', x: target.x, z: target.z, coins: ref.coins });
   } else if (target.kind === 'crate') {
-    run.weapon = ref.weapon;
+    // A new weapon, or a power tier for the one already carried.
+    if (ref.weapon && ref.weapon !== run.weapon) run.weapon = ref.weapon;
+    else run.tier = Math.min(MAX_TIER, run.tier + 1);
     run.fireTimer = 0;
-    run.events.push({ type: 'weapon', weapon: ref.weapon, x: target.x, z: target.z });
+    run.events.push({ type: 'weapon', weapon: run.weapon, tier: run.tier, x: target.x, z: target.z });
   }
 }
 
@@ -316,7 +299,7 @@ function fire(run, h, save) {
   }
   run.fireTimer += fireInterval(run.weapon, save);
   if (run.fireTimer < 0) run.fireTimer = 0;
-  const total = volleyDamage(run.army, run.weapon, save);
+  const total = volleyDamage(run.army, run.weapon, save, run.tier);
   const ox = run.x;
   const oz = run.z + 0.5;
   run.events.push({ type: 'shot', weapon: run.weapon, x: ox, z: oz, range: weapon.range });
@@ -339,7 +322,7 @@ function fire(run, h, save) {
     for (const a of SPREAD_ANGLES) shots.push({ dx: 0, angle: a });
   } else if (weapon.kind === 'bullet') {
     const n = bulletCount(run.army);
-    const half = Math.min(4, Math.sqrt(run.army) * 0.35);
+    const half = Math.min(4.4, Math.sqrt(run.army) * 0.4);
     for (let i = 0; i < n; i++) shots.push({ dx: n === 1 ? 0 : -half + (2 * half * i) / (n - 1), angle: 0 });
   } else {
     // Rockets: a bigger army launches more, each at a different cluster.

@@ -3,68 +3,55 @@ import assert from 'node:assert/strict';
 import { playLevel, spendCoins, freshSave } from './bot.js';
 import { RUN_SPEED } from '../src/rules.js';
 
-test('a sensible player wins levels 1-100 first time', () => {
+// Plays levels from..to in order, buying upgrades between them.
+function campaign(to, options, { upgrade = true } = {}) {
   const save = freshSave();
-  for (let n = 1; n <= 100; n++) {
+  const log = [];
+  for (let n = 1; n <= to; n++) {
     save.level = n;
-    const { run, result, armyAtBoss } = playLevel(n, save);
-    assert.ok(result && result.won, `level ${n} should be won (army at boss ${armyAtBoss})`);
-    assert.ok(run.t < 150, `level ${n} took ${run.t}s`);
-    assert.ok(armyAtBoss >= 10, `level ${n} army at boss ${armyAtBoss}`);
-    save.coins += result.coins;
-    spendCoins(save);
+    const { run, result, armyAtBoss } = playLevel(n, save, options);
+    const won = !!(result && result.won);
+    log.push({
+      n, won, armyAtBoss, kills: run.kills, armyLeft: run.army, tier: run.tier,
+      bossTime: run.t - run.level.length / RUN_SPEED, time: run.t,
+    });
+    if (result) save.coins += result.coins;
+    if (upgrade) spendCoins(save);
+  }
+  return log;
+}
+
+test('a player who picks well and upgrades wins levels 1-60 first time', () => {
+  for (const r of campaign(60, { pick: 'best' })) {
+    assert.ok(r.won, `level ${r.n} lost (army at boss ${r.armyAtBoss})`);
+    assert.ok(r.time < 150, `level ${r.n} took ${r.time}s`);
+    assert.ok(r.bossTime <= 25, `level ${r.n} boss fight ${r.bossTime.toFixed(1)}s`);
+    assert.ok(r.kills >= 250, `level ${r.n} only ${r.kills} kills`);
   }
 });
 
-test('boss fights stay short through level 100', () => {
-  const save = freshSave();
-  for (let n = 1; n <= 100; n++) {
-    save.level = n;
-    const { run, result } = playLevel(n, save);
-    const bossTime = run.t - run.level.length / RUN_SPEED;
-    assert.ok(bossTime >= 0.8 && bossTime <= 25, `level ${n} boss fight ${bossTime.toFixed(1)}s`);
-    save.coins += result.coins;
-    spendCoins(save);
+test('picking well is enough on the first levels even with no upgrades', () => {
+  for (const r of campaign(3, { pick: 'best' }, { upgrade: false })) {
+    assert.ok(r.won, `level ${r.n} lost without upgrades`);
   }
 });
 
-test('a careless player who never upgrades can lose', () => {
-  const save = freshSave();
-  let losses = 0;
-  for (let n = 1; n <= 20; n++) {
-    const { result } = playLevel(n, save, { best: false, dodge: false });
-    if (!result || !result.won) losses++;
-  }
-  assert.ok(losses >= 1, 'expected at least one loss');
+test('a player who keeps picking the worse gate mostly loses', () => {
+  const log = campaign(20, { pick: 'worst' });
+  const losses = log.filter((r) => !r.won).length;
+  assert.ok(losses >= 12, `only ${losses} losses in 20 levels`);
 });
 
-test('a sensible player mows down a crowd every level', () => {
-  const save = freshSave();
-  for (let n = 1; n <= 30; n++) {
-    save.level = n;
-    const { run, result } = playLevel(n, save);
-    assert.ok(run.kills >= 250, `level ${n} only ${run.kills} kills`);
-    save.coins += result.coins;
-    spendCoins(save);
-  }
+test('mixed picks are punished but survivable', () => {
+  const mixed = campaign(20, { pick: 'alternate' });
+  const good = campaign(20, { pick: 'best' });
+  const wins = mixed.filter((r) => r.won).length;
+  assert.ok(wins >= 14, `mixed picks won only ${wins} of 20`);
+  const sum = (log) => log.reduce((t, r) => t + (r.armyAtBoss || 0), 0);
+  assert.ok(sum(mixed) < sum(good) * 0.6, 'mixed picks reach the boss with a much smaller army');
 });
 
-test('the enemy stream never overwhelms a player with no upgrades', async () => {
-  const { createRun, stepRun, MAX_STEP } = await import('../src/sim.js');
-  const { applyGate } = await import('../src/rules.js');
-  for (let n = 1; n <= 20; n++) {
-    const run = createRun(n, {});
-    run.items = run.items.filter((it) => it.type === 'gates'); // only the stream and the gates
-    let lost = 0;
-    while (run.phase === 'run') {
-      const gate = run.items.find((it) => it.alive && !it.passed && it.z > run.z && it.z - run.z < 20);
-      const steer = gate ? (applyGate(run.army, gate.left) > applyGate(run.army, gate.right) ? -0.5 : 0.5) : 0;
-      stepRun(run, MAX_STEP, steer, {});
-      for (const e of run.events) if (e.type === 'soldierLost') lost += e.lost;
-      run.events.length = 0;
-    }
-    assert.equal(run.phase, 'boss', `level ${n} overrun`);
-    assert.ok(lost <= 15, `level ${n} lost ${lost} soldiers to the stream`);
-    assert.ok(run.spawned >= 400, `level ${n} only ${run.spawned} enemies`);
-  }
+test('ignoring the containers leaves the player weaker', () => {
+  const withCrates = campaign(10, { pick: 'best' });
+  assert.ok(withCrates.every((r) => r.tier >= 2), 'a good player opens at least one container per level');
 });

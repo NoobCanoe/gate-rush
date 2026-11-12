@@ -193,3 +193,27 @@ lines above.
   A level takes about 50–75 seconds before the boss (was 60–90).
 - **Coins.** A kill is worth a tenth of a coin, since there are far more kills.
 - Running into a weapon pedestal picks the weapon up at no cost.
+
+## Amendment 2, 2026-11-12: choices with consequences, containers every level
+
+The user found the game too easy: gate choices did not matter. This replaces
+the "always overpowered" rule in the first amendment.
+
+- **Fixed stream.** The enemy stream is set by the level, not by the army
+  facing it. It is sized against a reference army: what a player has after
+  middling gate picks, with the upgrades expected by that level and about half
+  the containers opened. Enemies toughen along the level with that reference.
+- **Consequences.** A player ahead of the reference mows the stream down; one
+  behind it lets enemies through, and each one that arrives removes a soldier.
+  The boss is sized the same way and removes soldiers faster on later levels.
+- **Targets (automated players, levels 1–30, buying upgrades):** always the
+  better gate wins every level; alternating better and worse wins nearly all
+  with a much smaller army; always the worse gate loses most levels. Coins are
+  kept on a loss, so upgrades eventually carry a stuck player through.
+- **Gates.** About a third are traps, over a third are multiply-versus-add
+  where the better side depends on current army size, the rest are two adds.
+- **Containers in every level** (two on level 1, up to four later), each with a
+  hit count. Shot open, one gives a different unlocked weapon or a power tier
+  (★ to ★★★★★, +40% damage each) for the rest of the run; a container for the
+  weapon already carried gives a tier. Bumping one unopened destroys it for
+  nothing. Level 1 containers are all power tiers.

@@ -156,7 +156,7 @@ test('the boss appears with full health when the road ends', () => {
 });
 
 test('a big army kills the boss and is paid for it', () => {
-  const run = atBoss(1, 200);
+  const run = atBoss(1, 2000);
   advance(run, 120);
   assert.equal(run.phase, 'won');
   assert.ok(types(run).includes('won'));
@@ -197,9 +197,10 @@ test('a bigger army fires more bullets per volley for the same total damage', ()
     stepRun(run, MAX_STEP, 0, {});
     return run.bullets;
   };
-  assert.equal(volley(5).length, 1);
+  assert.equal(volley(2).length, 1);
+  assert.equal(volley(5).length, 2);
   const many = volley(200);
-  assert.equal(many.length, 6);
+  assert.equal(many.length, 10);
   const total = many.reduce((sum, b) => sum + b.damage, 0);
   assert.ok(Math.abs(total - volleyDamage(200, 'rifle', {})) < 1e-6);
   assert.ok(new Set(many.map((b) => b.x.toFixed(2))).size > 1, 'bullets start across the crowd');
@@ -230,18 +231,64 @@ test('the laser does not fire at targets outside its beam', () => {
   assert.ok(!types(run).includes('shot'));
 });
 
-test('running into a weapon crate picks the weapon up at no cost', () => {
+test('bumping a container breaks it for nothing: it has to be shot open', () => {
   const run = bare({}, [{ type: 'crate', z: 3, x: 0, weapon: 'mg', hp: 1e9 }]);
   advance(run, 1);
-  assert.equal(run.weapon, 'mg');
+  assert.equal(run.weapon, 'rifle');
+  assert.equal(run.tier, 1);
   assert.equal(run.army, 5);
-  assert.ok(types(run).includes('weapon'));
+  assert.equal(run.items[0].alive, false);
+});
+
+test('a power container raises the weapon tier for the run', () => {
+  const run = bare({}, [{ type: 'crate', z: 15, x: 0, weapon: null, hp: 1 }]);
+  advance(run, 1);
+  assert.equal(run.tier, 2);
+  assert.equal(run.weapon, 'rifle');
+  const ev = run.events.find((e) => e.type === 'weapon');
+  assert.equal(ev.tier, 2);
+});
+
+test('a container holding the weapon already carried raises its tier instead', () => {
+  const run = bare({}, [{ type: 'crate', z: 15, x: 0, weapon: 'mg', hp: 1 }]);
+  run.weapon = 'mg';
+  advance(run, 1);
+  assert.equal(run.weapon, 'mg');
+  assert.equal(run.tier, 2);
+});
+
+test('switching weapon keeps the tier, and tiers stop at the maximum', () => {
+  const run = bare({}, [{ type: 'crate', z: 15, x: 0, weapon: 'mg', hp: 1 }, { type: 'crate', z: 40, x: 0, weapon: null, hp: 1 }]);
+  run.tier = 5;
+  advance(run, 4);
+  assert.equal(run.weapon, 'mg');
+  assert.equal(run.tier, 5);
+});
+
+test('a higher tier hits harder', () => {
+  const shoot = (tier) => {
+    const run = bare();
+    run.tier = tier;
+    run.enemies = [{ x: 0, z: 10, hp: 1e9, alive: true }];
+    advance(run, 0.4);
+    return 1e9 - run.enemies[0].hp;
+  };
+  assert.ok(shoot(3) > shoot(1) * 1.8);
+});
+
+test('the stream does not shrink for a weak army', () => {
+  const spawned = (army) => {
+    const run = createRun(5, {});
+    run.items = [];
+    run.army = army;
+    for (let t = 0; t < 12 && run.phase === 'run'; t += MAX_STEP) { stepRun(run, MAX_STEP, 0, {}); run.army = army; }
+    return run.spawned;
+  };
+  assert.equal(spawned(50), spawned(50000));
 });
 
 test('boss health stays finite at absurd levels', () => {
-  const run = createRun(9999, {});
-  assert.ok(Number.isFinite(run.level.boss.hp));
-  assert.equal(createRun(9999, {}).level.boss.hp, createRun(109, {}).level.boss.hp);
+  assert.ok(Number.isFinite(createRun(9999, {}).level.boss.hp));
 });
 
 // ---- constant enemy flow and pace ----

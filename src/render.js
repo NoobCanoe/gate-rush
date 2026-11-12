@@ -317,7 +317,8 @@ export function createRenderer(canvas) {
       return { group: g, label, body };
     }
     if (it.type === 'crate') {
-      const color = WEAPON_COLORS[it.weapon];
+      // A container holds a weapon, or (weapon null) a power tier.
+      const color = it.weapon ? WEAPON_COLORS[it.weapon] : 0xffd23f;
       const stand = new THREE.Mesh(
         new THREE.CylinderGeometry(0.95, 1.1, 0.7, 16),
         new THREE.MeshLambertMaterial({ color: 0x2c3340 }),
@@ -342,7 +343,13 @@ export function createRenderer(canvas) {
       const label = makeLabel(256, 128, 1.5);
       label.sprite.position.set(it.x, 3.0, 0);
       g.add(label.sprite);
-      return { group: g, label, gun, name: WEAPONS[it.weapon].name };
+      if (!it.weapon) {
+        // Power container: a spinning gem instead of a gun.
+        gun.clear();
+        const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.6), new THREE.MeshLambertMaterial({ color }));
+        gun.add(gem);
+      }
+      return { group: g, label, gun, name: it.weapon ? WEAPONS[it.weapon].name : 'POWER ★' };
     }
     return { group: g }; // squads have no static view
   }

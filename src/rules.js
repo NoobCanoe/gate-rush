@@ -71,14 +71,20 @@ export function weaponMult(save, weaponId) {
   return 1 + 0.15 * weaponLvl(save, weaponId);
 }
 
-// Damage grows with army size, but sub-linearly past 20 soldiers.
-function armyScale(army) {
-  return army <= 20 ? army : 20 + 4 * Math.sqrt(army - 20);
+export const MAX_TIER = 5;
+// Power tiers come from containers and last for the run.
+export function tierMult(tier) {
+  return 1.4 ** (Math.max(1, Math.min(MAX_TIER, tier || 1)) - 1);
 }
 
-export function volleyDamage(army, weaponId, save) {
+// Firepower grows strongly with army size, so the gates you pick matter.
+function armyScale(army) {
+  return army <= 20 ? army : 20 * (army / 20) ** 0.7;
+}
+
+export function volleyDamage(army, weaponId, save, tier = 1) {
   const w = WEAPONS[weaponId];
-  return w.damage * damageMult(save) * weaponMult(save, weaponId) * armyScale(army);
+  return w.damage * damageMult(save) * weaponMult(save, weaponId) * tierMult(tier) * armyScale(army);
 }
 
 export function fireInterval(weaponId, save) {
@@ -98,4 +104,24 @@ export function formatCount(n) {
   // 999950 would print as "1000.0K": step up a unit instead.
   while (v >= 999.95 && u < units.length - 1) { v /= 1000; u++; }
   return v.toFixed(1).replace(/\.0$/, '') + units[u];
+}
+
+// Shots per volley for each kind of weapon.
+export const SPREAD_PELLETS = 5;
+export const bulletCount = (army) => Math.max(1, Math.min(10, Math.ceil(army / 3)));
+export const rocketCount = (army) => Math.max(1, Math.min(4, Math.ceil(army / 15)));
+const REACH = { bullet: 3, spread: 2, rocket: 8, beam: 40 }; // most enemies one shot can deal with
+
+// Enemies per second an army can kill, for enemies with the given health:
+// limited by its damage and by how many shots it gets off.
+export function killRate(army, weaponId, save, hp, tier = 1) {
+  const weapon = WEAPONS[weaponId];
+  const interval = fireInterval(weaponId, save);
+  const volley = volleyDamage(army, weaponId, save, tier);
+  let shots = 1;
+  if (weapon.kind === 'bullet') shots = bulletCount(army);
+  else if (weapon.kind === 'spread') shots = SPREAD_PELLETS;
+  else if (weapon.kind === 'rocket') shots = rocketCount(army);
+  const perShot = Math.max(1, Math.min(REACH[weapon.kind], volley / shots / hp));
+  return Math.min(volley / interval / hp, (shots / interval) * perShot);
 }

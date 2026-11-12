@@ -94,7 +94,7 @@ export function createUI(root, handlers) {
         <p class="sub">Level ${save.level}</p>
         <button class="btn primary" data-action="play">Play</button>
         ${save.level > 1 || save.coins > 0 ? '<button class="btn" data-action="shop">Upgrades</button>' : ''}
-        <p class="hint">Drag left and right to steer.<br>Your army does the rest.</p>`, 'title');
+        <p class="hint">Drag to steer. Pick the better gate,<br>and shoot containers open for more power.</p>`, 'title');
     },
 
     showShop(save) {
@@ -133,7 +133,7 @@ export function createUI(root, handlers) {
       setScreen(`
         <p class="sub">New weapon!</p>
         <h2 class="weapon-name">${esc(WEAPONS[weaponId].name)}</h2>
-        <p class="hint">${esc(WEAPON_BLURB[weaponId])}<br>Shoot its pedestal on the road to pick it up.</p>
+        <p class="hint">${esc(WEAPON_BLURB[weaponId])}<br>Shoot its container open on the road to pick it up.</p>
         <button class="btn primary" data-action="card">Continue</button>`, 'card');
     },
 
@@ -147,7 +147,7 @@ export function createUI(root, handlers) {
     updateHud(run) {
       setText('level', `LEVEL ${run.level.number}`);
       setText('coins', formatCount(run.coins));
-      setText('weapon', WEAPONS[run.weapon].name);
+      setText('weapon', WEAPONS[run.weapon].name + ' ' + '★'.repeat(run.tier));
       const bar = el('bar');
       const bossing = run.boss && (run.phase === 'boss' || run.phase === 'won');
       const frac = bossing ? Math.max(0, run.boss.hp / run.boss.maxHp) : Math.min(1, run.z / run.level.length);
