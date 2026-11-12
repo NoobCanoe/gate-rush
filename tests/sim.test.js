@@ -204,3 +204,42 @@ test('a bigger army fires more bullets per volley for the same total damage', ()
   assert.ok(Math.abs(total - volleyDamage(200, 'rifle', {})) < 1e-6);
   assert.ok(new Set(many.map((b) => b.x.toFixed(2))).size > 1, 'bullets start across the crowd');
 });
+
+// ---- review fixes ----
+test('full steer reaches exactly the road limit and half steer half of it', () => {
+  const run = bare();
+  advance(run, 2, 0.5);
+  assert.ok(Math.abs(run.x - (ROAD_HALF - 0.5) / 2) < 1e-9);
+});
+
+test('the laser hurts the boss from the edge of the road', () => {
+  const run = atBoss(10, 500);
+  run.weapon = 'laser';
+  run.bullets = [];
+  run.x = ROAD_HALF - 0.5;
+  const before = run.boss.hp;
+  advance(run, 1, 1);
+  assert.ok(run.boss.hp < before);
+});
+
+test('the laser does not fire at targets outside its beam', () => {
+  const run = bare();
+  run.weapon = 'laser';
+  run.enemies = [{ x: 2.5, z: 10, hp: 1e9, alive: true }];
+  stepRun(run, MAX_STEP, 0, {});
+  assert.ok(!types(run).includes('shot'));
+});
+
+test('running into a weapon crate picks the weapon up at no cost', () => {
+  const run = bare({}, [{ type: 'crate', z: 3, x: 0, weapon: 'mg', hp: 1e9 }]);
+  advance(run, 1);
+  assert.equal(run.weapon, 'mg');
+  assert.equal(run.army, 5);
+  assert.ok(types(run).includes('weapon'));
+});
+
+test('boss health stays finite at absurd levels', () => {
+  const run = createRun(9999, {});
+  assert.ok(Number.isFinite(run.level.boss.hp));
+  assert.equal(createRun(9999, {}).level.boss.hp, createRun(109, {}).level.boss.hp);
+});

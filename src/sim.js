@@ -90,7 +90,7 @@ function subStep(run, h, steer, save) {
 
 function moveArmy(run, h, steer) {
   const limit = ROAD_HALF - 0.5;
-  const target = steer * ROAD_HALF;
+  const target = steer * limit;
   const dx = target - run.x;
   const max = STEER_SPEED * h;
   run.x += Math.max(-max, Math.min(max, dx));
@@ -123,7 +123,14 @@ function crossItems(run) {
       });
     } else if (Math.abs(run.x - it.x) < 1.2) {
       it.alive = false;
-      loseSoldiers(run, Math.ceil(it.hp / 40), 'crash');
+      if (it.type === 'crate') {
+        // Walking into a weapon pedestal simply picks the weapon up.
+        run.weapon = it.weapon;
+        run.fireTimer = 0;
+        run.events.push({ type: 'weapon', weapon: it.weapon, x: it.x, z: it.z });
+      } else {
+        loseSoldiers(run, Math.ceil(it.hp / 40), 'crash');
+      }
     }
   }
 }
@@ -227,11 +234,13 @@ function fire(run, h, save) {
   if (run.fireTimer > 0 || run.army <= 0) return;
   const weapon = WEAPONS[run.weapon];
   const all = targets(run);
+  // The beam only fires at what it can actually hit.
+  const aimWidth = weapon.kind === 'beam' ? BEAM_HALF_WIDTH : AIM_HALF_WIDTH;
   let best = null;
   for (const t of all) {
     const dz = t.z - run.z;
     if (dz > weapon.range) continue;
-    if (t.kind !== 'boss' && Math.abs(t.x - run.x) > AIM_HALF_WIDTH) continue;
+    if (t.kind !== 'boss' && Math.abs(t.x - run.x) > aimWidth) continue;
     if (!best || dz < best.z - run.z) best = t;
   }
   if (!best) {
@@ -248,7 +257,8 @@ function fire(run, h, save) {
   if (weapon.kind === 'beam') {
     for (const t of all) {
       const dz = t.z - run.z;
-      if (dz <= weapon.range && Math.abs(t.x - run.x) <= BEAM_HALF_WIDTH + (t.kind === 'boss' ? t.r : 0)) {
+      // The boss fills the road, so the beam reaches it from anywhere.
+      if (dz <= weapon.range && (t.kind === 'boss' || Math.abs(t.x - run.x) <= BEAM_HALF_WIDTH)) {
         damage(run, t, total);
       }
     }

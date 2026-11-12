@@ -19,9 +19,18 @@ export function createSteer(sensitivity = 1) {
       if (!(span > 0)) return;
       const v = startValue + ((clientX - startX) / span) * sensitivity;
       steer.value = Math.max(-1, Math.min(1, v));
+      if (v !== steer.value) {
+        // Dragged past the edge: restart the drag here so reversing responds at once.
+        startX = clientX;
+        startValue = steer.value;
+      }
     },
     end(id) {
       if (id === activeId) activeId = null;
+    },
+    // Forget the current finger (e.g. the app was hidden and no pointer-up arrived).
+    cancel() {
+      activeId = null;
     },
     reset() {
       activeId = null;
@@ -40,4 +49,6 @@ export function attachSteer(element, steer) {
   const end = (e) => steer.end(e.pointerId);
   window.addEventListener('pointerup', end);
   window.addEventListener('pointercancel', end);
+  window.addEventListener('blur', () => steer.cancel());
+  document.addEventListener('visibilitychange', () => steer.cancel());
 }

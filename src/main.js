@@ -193,6 +193,8 @@ if (!renderer.ok) {
   ui.showMessage("This device can't run the 3D graphics this game needs.");
 } else {
   attachSteer(canvas, steer);
+  // Any touch may revive sound after a phone call or app switch.
+  canvas.addEventListener('pointerdown', () => audio.unlock());
   renderer.setLevel(run.level);
   ui.showTitle(save);
   requestAnimationFrame(frame);
@@ -219,6 +221,15 @@ for (const type of ['gesturestart', 'gesturechange', 'dblclick']) {
 const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || local)) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Once the game is up, fetch any newer version in the background.
+  // It is swapped in whole and used from the next launch.
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      navigator.serviceWorker.ready
+        .then((reg) => reg.active && reg.active.postMessage({ type: 'refresh' }))
+        .catch(() => {});
+    }, 4000);
+  });
 }
 
 // Handle for play-testing from the console.

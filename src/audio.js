@@ -25,7 +25,7 @@ export function createAudio() {
     master.gain.value = muted ? 0 : 0.5;
     master.connect(comp);
     comp.connect(ctx.destination);
-    noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
+    noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 1, ctx.sampleRate);
     const data = noiseBuffer.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
     return true;
@@ -101,7 +101,7 @@ export function createAudio() {
     // Call from a tap: browsers only allow sound to start from a user gesture.
     unlock() {
       if (!ensure()) return;
-      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      if (ctx.state !== 'running') ctx.resume().catch(() => {});
     },
 
     play(name) {
@@ -125,7 +125,7 @@ export function createAudio() {
     },
 
     resume() {
-      if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+      if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
     },
   };
 }

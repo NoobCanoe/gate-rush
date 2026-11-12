@@ -16,9 +16,17 @@ function mulberry32(seed) {
 export const THEME_COUNT = 4;
 const LANES = [-3.2, 0, 3.2];
 
+// Boss health grows quickly while the player is still unlocking things, then
+// settles into a gentle curve so later levels stay as short as early ones.
+const BOSS_KNEE = 20;
+const BOSS_TAIL_POWER = 2;
+const BOSS_PLATEAU = 100; // from here on, bosses stop getting tougher
 export function bossHp(n) {
+  const level = Math.min(Math.max(1, n), BOSS_PLATEAU);
   const big = n % 5 === 0;
-  return Math.round(7500 * 1.19 ** (n - 1) * (big ? 1.6 : 1));
+  const early = 7500 * 1.19 ** (Math.min(level, BOSS_KNEE) - 1);
+  const tail = level > BOSS_KNEE ? (level / BOSS_KNEE) ** BOSS_TAIL_POWER : 1;
+  return Math.round(early * tail * (big ? 1.6 : 1));
 }
 
 export function generateLevel(n) {

@@ -66,4 +66,7 @@ test('counts are formatted compactly', () => {
   assert.equal(formatCount(950), '950');
   assert.equal(formatCount(12345), '12.3K');
   assert.equal(formatCount(99999), '100K');
+  assert.equal(formatCount(1234567), '1.2M');
+  assert.equal(formatCount(2500000000), '2.5B');
+  assert.equal(formatCount(999999), '1M');
 });

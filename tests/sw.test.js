@@ -33,7 +33,7 @@ function boot(fetchImpl) {
       delete: async (k) => stores.delete(k),
     },
     fetch: fetchImpl,
-    URL, Promise, setTimeout,
+    URL, Promise, setTimeout, Request: function Request(url) { this.url = new URL(url, ORIGIN + '/').href; },
   };
   vm.runInNewContext(source, sandbox);
   const run = async (type, extra = {}) => {
@@ -61,33 +61,50 @@ test('every precached file exists in the project', () => {
   }
 });
 
-test('online: the fresh copy is served and cached', async () => {
+test('the cached copy is served first, even online', async () => {
   const sw = boot(async () => response('fresh'));
   await sw.run('install');
   const res = await sw.run('fetch', get('/src/main.js'));
-  assert.equal(res.body, 'fresh');
-  const cache = await sw.sandbox.caches.open([...sw.stores.keys()][0]);
-  assert.equal((await cache.match('/src/main.js')).body, 'fresh');
+  assert.equal(res.body, 'precached src/main.js');
 });
 
 test('offline: the cached copy is served', async () => {
   const sw = boot(async () => { throw new TypeError('offline'); });
   await sw.run('install');
-  const res = await sw.run('fetch', get('/src/main.js'));
-  assert.equal(res.body, 'precached src/main.js');
-  const page = await sw.run('fetch', get('/'));
-  assert.equal(page.body, 'precached ./');
+  assert.equal((await sw.run('fetch', get('/src/main.js'))).body, 'precached src/main.js');
+  assert.equal((await sw.run('fetch', get('/'))).body, 'precached ./');
 });
 
-test('a hanging network falls back to the cache', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
-  const sw = boot(() => new Promise(() => {}));
-  sw.sandbox.setTimeout = setTimeout;
+test('a file missing from the cache comes from the network', async () => {
+  const sw = boot(async () => response('fresh'));
   await sw.run('install');
-  const pending = sw.run('fetch', get('/style.css'));
-  await new Promise((r) => setImmediate(r));
-  t.mock.timers.tick(3000);
-  assert.equal((await pending).body, 'precached style.css');
+  assert.equal((await sw.run('fetch', get('/extra.js'))).body, 'fresh');
+});
+
+test('a refresh replaces the whole cache for the next launch', async () => {
+  const sw = boot(async () => response('v2'));
+  await sw.run('install');
+  await sw.run('message', { data: { type: 'refresh' } });
+  assert.equal((await sw.run('fetch', get('/src/main.js'))).body, 'v2');
+  assert.equal((await sw.run('fetch', get('/style.css'))).body, 'v2');
+  assert.equal([...sw.stores.keys()].length, 1);
+});
+
+test('a refresh that fails part-way changes nothing', async () => {
+  let calls = 0;
+  const sw = boot(async () => { calls++; if (calls > 5) throw new TypeError('dropped'); return response('v2'); });
+  await sw.run('install');
+  await sw.run('message', { data: { type: 'refresh' } });
+  assert.ok(calls > 5);
+  assert.equal((await sw.run('fetch', get('/src/main.js'))).body, 'precached src/main.js');
+  assert.equal((await sw.run('fetch', get('/index.html'))).body, 'precached index.html');
+});
+
+test('a refresh that gets an error page changes nothing', async () => {
+  const sw = boot(async () => ({ body: '404', ok: false, clone() { return this; } }));
+  await sw.run('install');
+  await sw.run('message', { data: { type: 'refresh' } });
+  assert.equal((await sw.run('fetch', get('/src/main.js'))).body, 'precached src/main.js');
 });
 
 test('old caches are removed on activate and other origins are left alone', async () => {

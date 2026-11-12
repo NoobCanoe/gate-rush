@@ -90,6 +90,12 @@ export function unlockedWeapons(level) {
 }
 
 export function formatCount(n) {
+  if (!Number.isFinite(n)) return '∞';
   if (n < 1000) return String(Math.floor(n));
-  return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  const units = ['K', 'M', 'B', 'T'];
+  let v = n / 1000;
+  let u = 0;
+  // 999950 would print as "1000.0K": step up a unit instead.
+  while (v >= 999.95 && u < units.length - 1) { v /= 1000; u++; }
+  return v.toFixed(1).replace(/\.0$/, '') + units[u];
 }

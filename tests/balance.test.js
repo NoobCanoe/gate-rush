@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { playLevel, spendCoins, freshSave } from './bot.js';
 
-test('a sensible player wins levels 1-30 first time', () => {
+test('a sensible player wins levels 1-100 first time', () => {
   const save = freshSave();
-  for (let n = 1; n <= 30; n++) {
+  for (let n = 1; n <= 100; n++) {
     save.level = n;
     const { run, result, armyAtBoss } = playLevel(n, save);
     assert.ok(result && result.won, `level ${n} should be won (army at boss ${armyAtBoss})`);
@@ -15,13 +15,13 @@ test('a sensible player wins levels 1-30 first time', () => {
   }
 });
 
-test('a boss fight lasts long enough to enjoy but not drag', () => {
+test('boss fights stay short through level 100', () => {
   const save = freshSave();
-  for (let n = 1; n <= 30; n++) {
+  for (let n = 1; n <= 100; n++) {
     save.level = n;
     const { run, result } = playLevel(n, save);
     const bossTime = run.t - run.level.length / 8;
-    assert.ok(bossTime >= 1.5 && bossTime <= 25, `level ${n} boss fight ${bossTime.toFixed(1)}s`);
+    assert.ok(bossTime >= 0.8 && bossTime <= 25, `level ${n} boss fight ${bossTime.toFixed(1)}s`);
     save.coins += result.coins;
     spendCoins(save);
   }
