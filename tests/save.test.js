@@ -63,3 +63,12 @@ test('weapon upgrades need an unlocked weapon', () => {
   assert.equal(buyUpgrade(s, 'weapon', 'banana'), false);
   assert.equal(buyUpgrade(s, 'nonsense'), false);
 });
+
+test('starting over wipes progress in place but keeps the sound setting', async () => {
+  const { resetSave } = await import('../src/save.js');
+  const s = newSave();
+  s.level = 12; s.coins = 999; s.upgrades.damage = 7; s.weaponLevels.mg = 3; s.muted = true;
+  const same = resetSave(s);
+  assert.equal(same, s);
+  assert.deepEqual(s, { ...newSave(), muted: true });
+});

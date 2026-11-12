@@ -14,7 +14,12 @@ const WEAPON_BLURB = {
 const ICON_SOUND_ON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
 const ICON_SOUND_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm18.3-.3-1.4-1.4L17 10.2l-2.9-2.9-1.4 1.4 2.9 2.9-2.9 2.9 1.4 1.4 2.9-2.9 2.9 2.9 1.4-1.4-2.9-2.9 2.9-2.9z"/></svg>';
 
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
+
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const hasProgress = (save) => save.level > 1 || save.coins > 0
+  || Object.values(save.upgrades).some((v) => v > 0) || Object.keys(save.weaponLevels).length > 0;
 
 export function createUI(root, handlers) {
   root.innerHTML = `
@@ -22,7 +27,10 @@ export function createUI(root, handlers) {
       <div class="hud-row">
         <div class="pill" data-hud="level"></div>
         <div class="pill coin-pill"><span class="coin"></span><span data-hud="coins">0</span></div>
-        <button class="icon-btn" data-action="mute" aria-label="Sound"></button>
+        <span class="hud-buttons">
+          <button class="icon-btn" data-action="pause" aria-label="Pause">${ICON_PAUSE}</button>
+          <button class="icon-btn" data-action="mute" aria-label="Sound"></button>
+        </span>
       </div>
       <div class="bar"><div class="bar-fill" data-hud="bar"></div></div>
       <div class="pill weapon-pill" data-hud="weapon"></div>
@@ -49,6 +57,13 @@ export function createUI(root, handlers) {
     else if (action === 'play') handlers.onPlay();
     else if (action === 'shop') handlers.onShop();
     else if (action === 'continue') handlers.onContinue();
+    else if (action === 'pause') handlers.onPause();
+    else if (action === 'resume') handlers.onResume();
+    else if (action === 'restart') handlers.onRestart();
+    else if (action === 'quit') handlers.onQuit();
+    else if (action === 'ask-reset') handlers.onAskReset();
+    else if (action === 'reset') handlers.onReset();
+    else if (action === 'title') handlers.onTitle();
     else if (action === 'buy') handlers.onBuy(btn.dataset.kind, btn.dataset.weapon || undefined);
     else if (action === 'card' && onCard) { const done = onCard; onCard = null; done(); }
   });
@@ -93,8 +108,34 @@ export function createUI(root, handlers) {
         <h1 class="logo">GATE<br>RUSH</h1>
         <p class="sub">Level ${save.level}</p>
         <button class="btn primary" data-action="play">Play</button>
-        ${save.level > 1 || save.coins > 0 ? '<button class="btn" data-action="shop">Upgrades</button>' : ''}
-        <p class="hint">Drag to steer. Pick the better gate,<br>and shoot containers open for more power.</p>`, 'title');
+        ${hasProgress(save) ? '<button class="btn" data-action="shop">Upgrades</button>' : ''}
+        <p class="hint">Drag to steer. Pick the better gate,<br>and shoot containers open for more power.</p>
+        ${hasProgress(save) ? '<button class="link" data-action="ask-reset">Start over</button>' : ''}`, 'title');
+    },
+
+    // Shown over a frozen run. The HUD stays visible behind it.
+    showPause(levelNumber) {
+      setScreen(`
+        <h2>Paused</h2>
+        <p class="sub">Level ${levelNumber}</p>
+        <button class="btn primary" data-action="resume">Resume</button>
+        <button class="btn" data-action="restart">Restart level</button>
+        <button class="btn" data-action="quit">Quit to upgrades</button>
+        <p class="hint">Restarting or quitting gives up the coins from this attempt.</p>`, 'pause');
+    },
+
+    hidePause() {
+      screen.hidden = true;
+      screen.innerHTML = '';
+    },
+
+    showConfirmReset(save) {
+      hud.hidden = true;
+      setScreen(`
+        <h2>Start over?</h2>
+        <p class="hint">This erases your ${formatCount(save.coins)} coins, all upgrades and your progress to level ${save.level}. It can't be undone.</p>
+        <button class="btn danger" data-action="reset">Erase everything</button>
+        <button class="btn primary" data-action="title">Keep playing</button>`, 'confirm');
     },
 
     showShop(save) {

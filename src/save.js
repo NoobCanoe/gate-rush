@@ -18,6 +18,14 @@ export function newSave() {
   };
 }
 
+// Back to a brand-new game, keeping only the sound setting. Mutates the save.
+export function resetSave(save) {
+  const fresh = newSave();
+  fresh.muted = save.muted === true;
+  for (const key of Object.keys(save)) delete save[key];
+  return Object.assign(save, fresh);
+}
+
 const count = (v, min) => (Number.isFinite(v) && v >= min ? Math.min(Math.floor(v), 1e12) : null);
 
 export function loadSave(storage) {

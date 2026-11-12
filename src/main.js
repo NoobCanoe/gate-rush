@@ -5,7 +5,7 @@ import { createRenderer } from './render.js';
 import { createSteer, attachSteer } from './input.js';
 import { createAudio } from './audio.js';
 import { createUI } from './ui.js';
-import { loadSave, writeSave, buyUpgrade } from './save.js';
+import { loadSave, writeSave, buyUpgrade, resetSave } from './save.js';
 import { WEAPONS, formatCount } from './rules.js';
 
 const canvas = document.getElementById('game');
@@ -19,7 +19,7 @@ const save = loadSave(storage);
 const persist = () => writeSave(storage, save);
 audio.setMuted(save.muted);
 
-let mode = 'title'; // title | run | ending | menu
+let mode = 'title'; // title | run | paused | ending | menu
 let run = createRun(save.level, save);
 let result = null;
 let endedLevel = 0;
@@ -58,6 +58,52 @@ const ui = createUI(document.getElementById('ui'), {
       ui.showShop(save);
     }
   },
+  onPause() {
+    audio.unlock();
+    audio.play('tap');
+    pauseRun();
+  },
+  onResume() {
+    audio.unlock();
+    audio.play('tap');
+    if (mode !== 'paused') return;
+    ui.hidePause();
+    steer.cancel();
+    last = performance.now();
+    mode = 'run';
+  },
+  onRestart() {
+    audio.unlock();
+    audio.play('tap');
+    if (mode === 'paused') startRun(); // coins from the abandoned attempt are not banked
+  },
+  onQuit() {
+    audio.unlock();
+    audio.play('tap');
+    if (mode !== 'paused') return;
+    mode = 'menu';
+    ui.showShop(save);
+  },
+  onAskReset() {
+    audio.unlock();
+    audio.play('tap');
+    ui.showConfirmReset(save);
+  },
+  onReset() {
+    audio.unlock();
+    audio.play('tap');
+    resetSave(save);
+    persist();
+    run = createRun(save.level, save);
+    renderer.setLevel(run.level);
+    mode = 'title';
+    ui.showTitle(save);
+  },
+  onTitle() {
+    audio.unlock();
+    audio.play('tap');
+    ui.showTitle(save);
+  },
   onToggleMute() {
     save.muted = !save.muted;
     audio.setMuted(save.muted);
@@ -77,6 +123,12 @@ function startRun() {
   hitDamage = 0;
   mode = 'run';
   ui.showHud(run);
+}
+
+function pauseRun() {
+  if (mode !== 'run') return;
+  mode = 'paused';
+  ui.showPause(run.level.number);
 }
 
 function handleEvents() {
@@ -208,6 +260,7 @@ if (!renderer.ok) {
 document.addEventListener('visibilitychange', () => {
   paused = document.hidden;
   if (paused) {
+    pauseRun(); // come back to the pause menu, not to a run already in motion
     audio.suspend();
   } else {
     last = performance.now();
