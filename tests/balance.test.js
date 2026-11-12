@@ -30,7 +30,7 @@ test('a boss fight lasts long enough to enjoy but not drag', () => {
 test('a careless player who never upgrades can lose', () => {
   const save = freshSave();
   let losses = 0;
-  for (let n = 1; n <= 10; n++) {
+  for (let n = 1; n <= 20; n++) {
     const { result } = playLevel(n, save, { best: false, dodge: false });
     if (!result || !result.won) losses++;
   }

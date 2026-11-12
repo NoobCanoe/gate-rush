@@ -26,6 +26,7 @@ test('every level obeys the layout rules', () => {
       if (it.type === 'gates') {
         gates++;
         assert.ok(gateIsGood(it.left) || gateIsGood(it.right), `good side L${n}`);
+        assert.ok(it.left.op !== it.right.op || it.left.value !== it.right.value, `gates differ L${n}`);
         for (const g of [it.left, it.right]) assert.ok(Number.isInteger(g.value) && g.value > 0);
       } else {
         assert.ok(Math.abs(it.x) <= ROAD_HALF, `x range L${n}`);

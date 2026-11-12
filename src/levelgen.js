@@ -72,7 +72,11 @@ export function generateLevel(n) {
     if (i % 2 === 0) {
       const trap = i > 0 && rand() < 0.25;
       const a = goodGate();
-      const b = trap ? badGate() : goodGate();
+      let b = trap ? badGate() : goodGate();
+      // Two identical gates are no choice at all.
+      for (let tries = 0; tries < 6 && b.op === a.op && b.value === a.value; tries++) {
+        b = { op: 'add', value: int(addLo, addHi) };
+      }
       const flip = rand() < 0.5;
       items.push({ type: 'gates', z, left: flip ? a : b, right: flip ? b : a });
       return;

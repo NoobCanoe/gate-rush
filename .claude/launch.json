@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gate-rush",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["/Users/sean/Documents/AI/Claude Apps/Gate Rush/tools/serve.mjs", "8765"],
+      "port": 8765
+    }
+  ]
+}
