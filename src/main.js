@@ -215,5 +215,11 @@ for (const type of ['gesturestart', 'gesturechange', 'dblclick']) {
   document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
 }
 
+// Offline support: only where service workers are allowed (HTTPS or this machine).
+const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || local)) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
 // Handle for play-testing from the console.
 window.__game = { get run() { return run; }, get mode() { return mode; }, save, steer, audio };

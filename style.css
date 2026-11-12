@@ -43,12 +43,13 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .screen {
   position: absolute; inset: 0;
   padding: calc(env(safe-area-inset-top) + 24px) calc(env(safe-area-inset-right) + 22px) calc(env(safe-area-inset-bottom) + 24px) calc(env(safe-area-inset-left) + 22px);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 14px; text-align: center;
+  overflow-y: auto; touch-action: pan-y;
   background: linear-gradient(rgba(16, 22, 44, 0.55), rgba(16, 22, 44, 0.82));
 }
 .screen h1, .screen h2, .screen p { margin: 0; text-wrap: balance; }
 .logo {
-  font-size: clamp(56px, 19vw, 96px); line-height: 0.92; font-weight: 900; letter-spacing: 0.02em;
+  font-size: clamp(40px, min(19vw, 15vh), 96px); line-height: 0.92; font-weight: 900; letter-spacing: 0.02em;
   color: #fff; -webkit-text-stroke: 3px #14204a; paint-order: stroke fill;
   text-shadow: 0 6px 0 #2f7dff, 0 12px 0 rgba(0, 0, 0, 0.25); margin-bottom: 6px !important;
 }
@@ -57,7 +58,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .hint { font-size: 15px; line-height: 1.45; color: rgba(255, 255, 255, 0.8); max-width: 30ch; }
 .weapon-name { font-size: 40px !important; color: #fff3a8; }
 .btn {
-  width: min(100%, 300px); min-height: 56px; border-radius: 18px; font-size: 20px; font-weight: 900;
+  flex: none; width: min(100%, 300px); min-height: 56px; border-radius: 18px; font-size: 20px; font-weight: 900;
   background: rgba(255, 255, 255, 0.16); box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
 }
 .btn.primary { background: #2f7dff; box-shadow: 0 5px 0 #14409a; }
