@@ -18,7 +18,7 @@ const LANES = [-3.2, 0, 3.2];
 
 export function bossHp(n) {
   const big = n % 5 === 0;
-  return Math.round(1500 * 1.22 ** (n - 1) * (big ? 1.6 : 1));
+  return Math.round(7500 * 1.19 ** (n - 1) * (big ? 1.6 : 1));
 }
 
 export function generateLevel(n) {
@@ -47,8 +47,9 @@ export function generateLevel(n) {
 
   const addLo = 5 + n * 2;
   const addHi = 15 + n * 4;
+  let mulLeft = 2 + Math.floor(n / 8); // multiply gates are rationed so armies grow steadily
   const goodGate = () => {
-    if (rand() < 0.4) return { op: 'mul', value: n >= 3 && rand() < 0.3 ? 3 : 2 };
+    if (mulLeft > 0 && rand() < 0.4 && mulLeft--) return { op: 'mul', value: n >= 3 && rand() < 0.3 ? 3 : 2 };
     return { op: 'add', value: int(addLo, addHi) };
   };
   const badGate = () => {

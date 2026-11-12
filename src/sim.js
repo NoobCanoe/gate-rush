@@ -2,7 +2,7 @@
 // audio and UI read this state and the events it emits.
 import {
   ROAD_HALF, RUN_SPEED, WEAPONS, applyGate, gateIsGood, gateLabel, startArmy,
-  volleyDamage, fireInterval,
+  volleyDamage, fireInterval, coinMult, WEAPON_ORDER,
 } from './rules.js';
 import { generateLevel } from './levelgen.js';
 
@@ -16,7 +16,11 @@ const BULLET_SPEED = 60;
 const AIM_HALF_WIDTH = 3;
 const BEAM_HALF_WIDTH = 1.5;
 const SPREAD_ANGLES = [-0.21, -0.105, 0, 0.105, 0.21]; // radians, about ±12°
-const RADIUS = { enemy: 0.8, barrel: 1.1, crate: 1.1 };
+const RADIUS = { enemy: 0.8, barrel: 1.1, crate: 1.1, boss: 2.6 };
+const BOSS_START_AHEAD = 20;
+const BOSS_SPEED = 2;
+const BOSS_SPEED_BIG = 1.6;
+const BOSS_CONTACT = 3;
 
 export function prepItem(item) {
   return { ...item, alive: true, passed: false, maxHp: item.hp };
@@ -63,6 +67,11 @@ function subStep(run, h, steer, save) {
     if (run.z >= run.level.length) {
       run.z = run.level.length;
       run.phase = 'boss';
+      const b = run.level.boss;
+      run.boss = {
+        hp: b.hp, maxHp: b.hp, x: 0, z: run.z + BOSS_START_AHEAD, dps: b.dps, big: b.big,
+        contact: false, alive: true, lossAcc: 0,
+      };
       run.events.push({ type: 'bossStart' });
     }
   }
@@ -70,6 +79,8 @@ function subStep(run, h, steer, save) {
   moveEnemies(run, h);
   moveBullets(run, h);
   fire(run, h, save);
+  if (run.phase === 'boss') moveBoss(run, h);
+  if (run.phase === 'won') return;
   if (run.army <= 0 && run.phase !== 'lost') {
     run.army = 0;
     run.phase = 'lost';
@@ -151,6 +162,27 @@ function moveEnemies(run, h) {
   if (anyDead) run.enemies = run.enemies.filter((e) => e.alive);
 }
 
+function moveBoss(run, h) {
+  const boss = run.boss;
+  if (boss.hp <= 0) {
+    boss.alive = false;
+    run.phase = 'won';
+    run.events.push({ type: 'won', x: boss.x, z: boss.z });
+    return;
+  }
+  if (boss.z - run.z > BOSS_CONTACT) {
+    boss.z = Math.max(run.z + BOSS_CONTACT, boss.z - (boss.big ? BOSS_SPEED_BIG : BOSS_SPEED) * h);
+    return;
+  }
+  boss.contact = true;
+  boss.lossAcc += boss.dps * h;
+  const n = Math.floor(boss.lossAcc);
+  if (n > 0) {
+    boss.lossAcc -= n;
+    loseSoldiers(run, n, 'soldierLost');
+  }
+}
+
 // Everything that can be shot, as { kind, ref, x, z, r }.
 function targets(run) {
   const out = [];
@@ -162,6 +194,9 @@ function targets(run) {
       out.push({ kind: it.type, ref: it, x: it.x, z: it.z, r: RADIUS[it.type] });
     }
   }
+  if (run.boss && run.boss.alive) {
+    out.push({ kind: 'boss', ref: run.boss, x: run.boss.x, z: run.boss.z, r: RADIUS.boss });
+  }
   return out;
 }
 
@@ -171,6 +206,7 @@ function damage(run, target, amount) {
   ref.hp -= amount;
   run.events.push({ type: 'hit', kind: target.kind, x: target.x, z: target.z, damage: amount });
   if (ref.hp > 0) return;
+  if (target.kind === 'boss') { ref.hp = 0; return; } // moveBoss ends the run
   ref.alive = false;
   if (target.kind === 'enemy') {
     run.kills += 1;
@@ -264,4 +300,18 @@ function moveBullets(run, h) {
     }
   }
   run.bullets = run.bullets.filter((b) => b.ttl > 0);
+}
+
+export function runResult(run, save) {
+  const won = run.phase === 'won';
+  const n = run.level.number;
+  const base = won ? run.coins + 20 + 10 * n + Math.floor(3 * Math.sqrt(run.army)) : run.coins;
+  const next = WEAPON_ORDER.find((id) => WEAPONS[id].unlock === n + 1);
+  return {
+    won,
+    coins: Math.round(base * coinMult(save)),
+    kills: run.kills,
+    armyLeft: run.army,
+    newWeapon: won && next ? next : null,
+  };
 }

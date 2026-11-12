@@ -134,3 +134,57 @@ test('reaching the end of the road starts the boss phase', () => {
   assert.equal(run.z, 10);
   assert.ok(types(run).includes('bossStart'));
 });
+
+// ---- boss and results ----
+import { runResult } from '../src/sim.js';
+
+function atBoss(levelNumber, army, save = {}) {
+  const run = createRun(levelNumber, save);
+  run.items = [];
+  run.z = run.level.length - 0.01;
+  run.army = army;
+  stepRun(run, MAX_STEP, 0, save);
+  assert.equal(run.phase, 'boss');
+  return run;
+}
+
+test('the boss appears with full health when the road ends', () => {
+  const run = atBoss(1, 50);
+  assert.equal(run.boss.hp, run.level.boss.hp);
+  assert.equal(run.boss.maxHp, run.level.boss.hp);
+  assert.ok(run.boss.z > run.z);
+});
+
+test('a big army kills the boss and is paid for it', () => {
+  const run = atBoss(1, 200);
+  advance(run, 120);
+  assert.equal(run.phase, 'won');
+  assert.ok(types(run).includes('won'));
+  const res = runResult(run, {});
+  assert.equal(res.won, true);
+  assert.equal(res.armyLeft, run.army);
+  assert.equal(res.coins, Math.round(run.coins + 20 + 10 + Math.floor(3 * Math.sqrt(run.army))));
+});
+
+test('the boss wears down a tiny army and the coins are kept', () => {
+  const run = atBoss(1, 1);
+  run.boss.hp = 1e9;
+  run.coins = 12;
+  advance(run, 120);
+  assert.equal(run.phase, 'lost');
+  const save = { upgrades: { coins: 5 } };
+  assert.equal(runResult(run, save).won, false);
+  assert.equal(runResult(run, save).coins, 18);
+});
+
+test('winning the level before a weapon unlocks announces it', () => {
+  const win = (n) => {
+    const run = atBoss(n, 5000);
+    advance(run, 200);
+    assert.equal(run.phase, 'won');
+    return runResult(run, {}).newWeapon;
+  };
+  assert.equal(win(1), 'mg');
+  assert.equal(win(2), null);
+  assert.equal(win(3), 'shotgun');
+});
