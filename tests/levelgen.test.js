@@ -1,16 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateLevel } from '../src/levelgen.js';
-import { ROAD_HALF, unlockedWeapons, gateIsGood } from '../src/rules.js';
+import { ROAD_HALF, RUN_SPEED, unlockedWeapons, gateIsGood } from '../src/rules.js';
 
 test('levels are deterministic and differ by number', () => {
   assert.deepEqual(generateLevel(7), generateLevel(7));
   assert.notDeepEqual(generateLevel(7), generateLevel(8));
 });
 
-test('level length gives a 60 to 90 second run', () => {
-  assert.equal(generateLevel(1).length, 492);
-  assert.equal(generateLevel(40).length, 720);
+test('a run lasts about a minute', () => {
+  const secs = (n) => generateLevel(n).length / RUN_SPEED;
+  assert.ok(secs(1) >= 45 && secs(1) <= 60, `level 1 runs ${secs(1)}s`);
+  assert.ok(secs(40) >= 60 && secs(40) <= 80, `level 40 runs ${secs(40)}s`);
 });
 
 test('every level obeys the layout rules', () => {
@@ -61,4 +62,14 @@ test('boss health grows with level', () => {
   const hp = (n) => generateLevel(n).boss.hp;
   assert.ok(hp(6) < hp(7) && hp(7) < hp(8));
   assert.ok(generateLevel(3).boss.dps >= 1);
+});
+
+test('every level has an enemy flow that grows with the level', () => {
+  for (let n = 1; n <= 40; n++) {
+    const f = generateLevel(n).flow;
+    assert.ok(f.every > 0 && f.every <= 2, `interval L${n}`);
+    assert.ok(Number.isInteger(f.lo) && Number.isInteger(f.hi) && f.lo >= 2 && f.hi >= f.lo, `sizes L${n}`);
+    assert.ok(f.hp > 0);
+  }
+  assert.ok(generateLevel(20).flow.hi > generateLevel(1).flow.hi);
 });

@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRun, stepRun, prepItem, MAX_STEP } from '../src/sim.js';
+import { createRun, stepRun, prepItem, MAX_STEP, KILL_COINS } from '../src/sim.js';
 import { ROAD_HALF, RUN_SPEED, startArmy, volleyDamage } from '../src/rules.js';
 
 // A run on an empty, very long road, to place hand-made items on.
 function bare(save = {}, items = []) {
   const run = createRun(1, save);
-  run.level = { ...run.level, length: 1000 };
+  run.level = { ...run.level, length: 1000, flow: null };
   run.items = items.map(prepItem);
   return run;
 }
@@ -98,7 +98,7 @@ test('killing enemies counts kills and coins', () => {
   const run = bare({}, [{ type: 'squad', z: 30, x: 0, count: 3, hp: 1 }]);
   advance(run, 4);
   assert.equal(run.kills, 3);
-  assert.equal(run.coins, 3);
+  assert.equal(run.coins, 3 * KILL_COINS);
   assert.equal(run.army, 5);
 });
 
@@ -128,7 +128,7 @@ test('the shotgun fires a fan of pellets', () => {
 
 test('reaching the end of the road starts the boss phase', () => {
   const run = bare();
-  run.level = { ...run.level, length: 10 };
+  run.level = { ...run.level, length: 10, flow: null };
   advance(run, 2);
   assert.equal(run.phase, 'boss');
   assert.equal(run.z, 10);
@@ -193,7 +193,7 @@ test('a bigger army fires more bullets per volley for the same total damage', ()
   const volley = (army) => {
     const run = bare();
     run.army = army;
-    run.enemies = [{ x: 0, z: 30, hp: 1e9, alive: true }];
+    run.enemies = [{ x: 0, z: 20, hp: 1e9, alive: true }];
     stepRun(run, MAX_STEP, 0, {});
     return run.bullets;
   };
@@ -225,7 +225,7 @@ test('the laser hurts the boss from the edge of the road', () => {
 test('the laser does not fire at targets outside its beam', () => {
   const run = bare();
   run.weapon = 'laser';
-  run.enemies = [{ x: 2.5, z: 10, hp: 1e9, alive: true }];
+  run.enemies = [{ x: 4, z: 10, hp: 1e9, alive: true }];
   stepRun(run, MAX_STEP, 0, {});
   assert.ok(!types(run).includes('shot'));
 });
@@ -242,4 +242,74 @@ test('boss health stays finite at absurd levels', () => {
   const run = createRun(9999, {});
   assert.ok(Number.isFinite(run.level.boss.hp));
   assert.equal(createRun(9999, {}).level.boss.hp, createRun(109, {}).level.boss.hp);
+});
+
+// ---- constant enemy flow and pace ----
+test('one bullet carries its leftover damage through a line of weak enemies', () => {
+  const run = bare();
+  run.enemies = [10, 11, 12].map((z) => ({ x: 0, z, hp: 10, alive: true }));
+  advance(run, 0.4); // a single rifle volley: 50 damage
+  assert.equal(run.kills, 3);
+});
+
+test('a bullet stops in a target tougher than its damage', () => {
+  const run = bare();
+  run.enemies = [{ x: 0, z: 10, hp: 1e9, alive: true }, { x: 0, z: 11, hp: 1, alive: true }];
+  advance(run, 0.4);
+  assert.equal(run.kills, 0);
+});
+
+test('enemies keep streaming in for the whole run', () => {
+  const run = createRun(3, {});
+  run.items = [];
+  run.army = 5000;
+  const seen = [];
+  for (let s = 0; s < 6; s++) {
+    advance(run, 5);
+    seen.push(run.spawned);
+  }
+  assert.ok(seen[0] >= 15, `first 5s spawned ${seen[0]}`);
+  for (let i = 1; i < seen.length; i++) assert.ok(seen[i] - seen[i - 1] >= 15, `window ${i}: ${seen[i] - seen[i - 1]}`);
+  assert.ok(seen[5] - seen[4] > seen[0], 'the flow thickens as the level goes on');
+});
+
+test('the enemy flow is identical on a retry', () => {
+  const play = () => {
+    const run = createRun(4, {});
+    run.army = 5000;
+    advance(run, 8, 0.3);
+    return [run.spawned, run.kills, run.enemies.map((e) => e.x.toFixed(3)).join()];
+  };
+  assert.deepEqual(play(), play());
+});
+
+test('the flow stops for the boss fight', () => {
+  const run = atBoss(3, 5000);
+  run.boss.hp = 1e12;
+  const before = run.spawned;
+  advance(run, 5);
+  assert.equal(run.spawned, before);
+});
+
+test('the pace is brisk', () => {
+  assert.ok(RUN_SPEED >= 12);
+});
+
+test('a big army launches rockets at separate clusters', () => {
+  const run = bare();
+  run.weapon = 'rocket';
+  run.army = 100;
+  run.enemies = [[-4, 12], [4, 14], [0, 25]].map(([x, z]) => ({ x, z, hp: 1e9, alive: true }));
+  stepRun(run, MAX_STEP, 0, {});
+  assert.equal(run.bullets.length, 3);
+  assert.ok(new Set(run.bullets.map((b) => Math.sign(Math.round(b.vx)))).size === 3, 'left, right and straight');
+});
+
+test('a wave keeps its ranks instead of bunching onto one spot', () => {
+  const run = bare({}, [{ type: 'squad', z: 50, x: 0, count: 36, hp: 1e9 }]);
+  run.army = 5000;
+  advance(run, 2, 0.6);
+  const columns = new Set(run.enemies.map((e) => e.x.toFixed(1)));
+  assert.ok(run.enemies.length >= 30);
+  assert.ok(columns.size >= 5, `only ${columns.size} columns`);
 });

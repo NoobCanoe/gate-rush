@@ -118,7 +118,7 @@ so that army sizes grow into the hundreds and then thousands.
 
 Plain HTML, CSS and JavaScript modules with Three.js vendored into the
 project. No build step. The project lives in
-`/Users/sean/Documents/AI/Claude Apps/Gate Rush/`.
+its own folder, `Gate Rush/`.
 
 | Unit | Responsibility | Depends on |
 |---|---|---|
@@ -173,3 +173,23 @@ start before the first tap.
 
 Endless mode, skins, leaderboards, music, accounts, cloud save, landscape
 orientation, Android-specific tuning.
+
+## Amendment, 2026-11-12: more enemies, faster pace
+
+After playing the first build the user asked for significantly more enemies,
+arriving as a constant flow, and a faster pace. This replaces the affected
+lines above.
+
+- **Constant enemy stream.** Besides the set-piece squads, ranks of enemies
+  march at the army for the whole run, thickening toward the boss. A level
+  has over a thousand enemies instead of a few dozen.
+- **Always overpowered.** The stream is sized to a share of what the army can
+  currently kill, so a small army meets a thin stream and a huge army a flood.
+  Enemies alone should not defeat a player; trap gates and barrels still can.
+- **Piercing fire.** A bullet carries its leftover damage through weak enemies.
+  Rocket launchers fire several rockets at separate clusters. The laser is a
+  wide sheet.
+- **Pace.** Run speed is 12 units a second (was 8) and enemies close faster.
+  A level takes about 50–75 seconds before the boss (was 60–90).
+- **Coins.** A kill is worth a tenth of a coin, since there are far more kills.
+- Running into a weapon pedestal picks the weapon up at no cost.

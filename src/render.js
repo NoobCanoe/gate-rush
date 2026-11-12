@@ -555,7 +555,7 @@ export function createRenderer(canvas) {
 
   function beam(x, z, range) {
     beamMesh.visible = true;
-    beamMesh.scale.set(1, 1, range);
+    beamMesh.scale.set(11, 1, range); // 5.5 wide: matches the beam's reach in the simulation
     beamMesh.position.set(x, 0.8, -(z + range / 2));
     beamLife = 0.09;
   }

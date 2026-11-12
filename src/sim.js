@@ -8,13 +8,17 @@ import { generateLevel } from './levelgen.js';
 
 export const MAX_STEP = 1 / 30;
 const MAX_FRAME = 0.25;
-const STEER_SPEED = 14;
-const SPAWN_AHEAD = 45;
-const ENEMY_SPEED = 3;
-const ENEMY_DRIFT = 1.5;
+export const KILL_COINS = 0.1;
+const STEER_SPEED = 18;
+const SPAWN_AHEAD = 55;
+const ENEMY_SPEED = 5;
+const ENEMY_DRIFT = 2;
+const FLOW_GRACE = 1.5; // seconds before the first enemies appear
+const FLOW_START = 0.5; // group-size multiplier at the start of a level...
+const FLOW_END = 1.6; // ...and at the end
 const BULLET_SPEED = 60;
 const AIM_HALF_WIDTH = 3;
-const BEAM_HALF_WIDTH = 1.5;
+const BEAM_HALF_WIDTH = 3; // a broad sheet of light, as wide as the army's aim
 const SPREAD_ANGLES = [-0.21, -0.105, 0, 0.105, 0.21]; // radians, about ±12°
 const RADIUS = { enemy: 0.8, barrel: 1.1, crate: 1.1, boss: 2.6 };
 const BOSS_START_AHEAD = 20;
@@ -44,6 +48,9 @@ export function createRun(levelNumber, save) {
     bullets: [],
     boss: null,
     events: [],
+    spawned: 0,
+    flowTimer: FLOW_GRACE,
+    seed: (levelNumber * 2654435761) >>> 0,
   };
 }
 
@@ -76,6 +83,7 @@ function subStep(run, h, steer, save) {
     }
   }
   crossItems(run);
+  if (run.phase === 'run') flowEnemies(run, h, save);
   moveEnemies(run, h);
   moveBullets(run, h);
   fire(run, h, save);
@@ -135,20 +143,77 @@ function crossItems(run) {
   }
 }
 
-function spawnSquad(run, squad) {
-  squad.alive = false;
-  const cols = Math.ceil(Math.sqrt(squad.count));
-  for (let i = 0; i < squad.count; i++) {
+function spawnGroup(run, cx, z, count, hp, wide = false) {
+  // Waves march in wide ranks; set-piece squads in a tight square.
+  const cols = wide ? Math.min(11, Math.ceil(Math.sqrt(count * 2.5))) : Math.ceil(Math.sqrt(count));
+  for (let i = 0; i < count; i++) {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    const x = squad.x + (col - (cols - 1) / 2) * 0.8;
+    const off = (col - (cols - 1) / 2) * 0.8;
+    const x = cx + off;
     run.enemies.push({
+      off, // place in the formation, kept while the group closes in
       x: Math.max(-ROAD_HALF + 0.4, Math.min(ROAD_HALF - 0.4, x)),
-      z: squad.z + row * 0.8,
-      hp: squad.hp,
-      maxHp: squad.hp,
+      z: z + row * 0.8,
+      hp,
+      maxHp: hp,
       alive: true,
     });
+  }
+  run.spawned += count;
+}
+
+function spawnSquad(run, squad) {
+  squad.alive = false;
+  spawnGroup(run, squad.x, squad.z, squad.count, squad.hp);
+}
+
+// Seeded, so a retry of the level meets exactly the same enemies.
+function random(run) {
+  run.seed = (run.seed + 0x6d2b79f5) >>> 0;
+  let t = run.seed;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+// The constant stream: small groups keep arriving, thicker as the level goes on.
+// How many kills per second the army can manage against enemies of this
+// toughness: limited by its damage and by how many shots it gets off.
+const REACH = { bullet: 6, spread: 2, rocket: 6, beam: 30 }; // most enemies one shot can deal with
+function killRate(run, save, hp) {
+  const weapon = WEAPONS[run.weapon];
+  const interval = fireInterval(run.weapon, save);
+  const volley = volleyDamage(run.army, run.weapon, save);
+  let shots = 1;
+  if (weapon.kind === 'bullet') shots = bulletCount(run.army);
+  else if (weapon.kind === 'spread') shots = SPREAD_ANGLES.length;
+  else if (weapon.kind === 'rocket') shots = rocketCount(run.army);
+  // A shot kills as many as its damage allows, up to what it can physically reach.
+  const perShot = Math.max(1, Math.min(REACH[weapon.kind], volley / shots / hp));
+  return Math.min(volley / interval / hp, (shots / interval) * perShot);
+}
+const bulletCount = (army) => Math.max(1, Math.min(6, Math.ceil(army / 12)));
+const rocketCount = (army) => Math.max(1, Math.min(4, Math.ceil(army / 15)));
+const FLOW_SHARE = 0.65; // the stream never asks for more than this share of the army's kill rate
+
+function flowEnemies(run, h, save) {
+  const flow = run.level.flow;
+  if (!flow) return;
+  run.flowTimer -= h;
+  while (run.flowTimer <= 0) {
+    run.flowTimer += flow.every;
+    const z = run.z + SPAWN_AHEAD;
+    if (z > run.level.length + 8) continue; // leave the boss arena clear
+    const progress = Math.min(1, run.z / run.level.length);
+    let size = (flow.lo + random(run) * (flow.hi - flow.lo)) * (FLOW_START + (FLOW_END - FLOW_START) * progress);
+    const cx = (random(run) * 2 - 1) * (ROAD_HALF - 1.2);
+    const roll = random(run);
+    // Keep the player overpowered: a small army meets a thin stream, a huge one a flood.
+    const manageable = killRate(run, save, flow.hp) * flow.every * FLOW_SHARE;
+    size = Math.min(size, manageable);
+    const count = size >= 1 ? Math.round(size) : (roll < size ? 1 : 0);
+    if (count > 0) spawnGroup(run, cx * 0.4, z, count, flow.hp, true);
   }
 }
 
@@ -157,7 +222,9 @@ function moveEnemies(run, h) {
   for (const e of run.enemies) {
     if (!e.alive) { anyDead = true; continue; }
     e.z -= ENEMY_SPEED * h;
-    const dx = run.x - e.x;
+    // The group homes in on the army but each enemy keeps its place in the ranks.
+    const want = Math.max(-ROAD_HALF + 0.4, Math.min(ROAD_HALF - 0.4, run.x + (e.off || 0)));
+    const dx = want - e.x;
     const max = ENEMY_DRIFT * h;
     e.x += Math.max(-max, Math.min(max, dx));
     if (e.z - run.z < 1) {
@@ -217,7 +284,7 @@ function damage(run, target, amount) {
   ref.alive = false;
   if (target.kind === 'enemy') {
     run.kills += 1;
-    run.coins += 1;
+    run.coins += KILL_COINS;
     run.events.push({ type: 'kill', x: target.x, z: target.z });
   } else if (target.kind === 'barrel') {
     run.coins += ref.coins;
@@ -271,15 +338,35 @@ function fire(run, h, save) {
   if (weapon.kind === 'spread') {
     for (const a of SPREAD_ANGLES) shots.push({ dx: 0, angle: a });
   } else if (weapon.kind === 'bullet') {
-    const n = Math.max(1, Math.min(6, Math.ceil(run.army / 12)));
-    const half = Math.min(2.5, Math.sqrt(run.army) * 0.2);
+    const n = bulletCount(run.army);
+    const half = Math.min(4, Math.sqrt(run.army) * 0.35);
     for (let i = 0; i < n; i++) shots.push({ dx: n === 1 ? 0 : -half + (2 * half * i) / (n - 1), angle: 0 });
   } else {
-    shots.push({ dx: 0, angle: 0 });
+    // Rockets: a bigger army launches more, each at a different cluster.
+    const n = rocketCount(run.army);
+    const picked = [best];
+    const inRange = all
+      .filter((t) => t.z - run.z <= weapon.range && t !== best)
+      .sort((p, q) => p.z - q.z);
+    for (const t of inRange) {
+      if (picked.length >= n) break;
+      if (picked.every((p) => Math.hypot(p.x - t.x, p.z - t.z) > weapon.splash)) picked.push(t);
+    }
+    for (const t of picked) shots.push({ dx: 0, angle: 0, target: t });
   }
   for (const shot of shots) {
     const sx = Math.max(-ROAD_HALF, Math.min(ROAD_HALF, ox + shot.dx));
-    const aim = Math.atan2(best.x - sx, best.z - oz) + shot.angle;
+    // Each bullet goes for the nearest enemy in its own lane, so fire covers the whole mob.
+    let at = shot.target || best;
+    if (weapon.kind === 'bullet' && shots.length > 1) {
+      let near = null;
+      for (const t of all) {
+        if (t.z - run.z > weapon.range || Math.abs(t.x - sx) > 1.2) continue;
+        if (!near || t.z < near.z) near = t;
+      }
+      if (near) at = near;
+    }
+    const aim = Math.atan2(at.x - sx, at.z - oz) + shot.angle;
     run.bullets.push({
       x: sx,
       z: oz,
@@ -301,24 +388,33 @@ function moveBullets(run, h) {
     b.x += b.vx * h;
     b.z += b.vz * h;
     b.ttl -= h;
-    let hit = null;
-    for (const t of all) {
-      if (!t.ref.alive) continue;
-      if (t.z < pz - t.r || t.z > b.z + t.r) continue;
-      if (Math.abs(t.x - b.x) > t.r + 0.3) continue;
-      if (!hit || t.z < hit.z) hit = t;
-    }
-    if (!hit) continue;
-    b.ttl = 0;
-    if (b.kind === 'rocket') {
-      run.events.push({ type: 'explosion', x: hit.x, z: hit.z, radius: b.splash });
+    // A bullet ploughs on through weak enemies until its damage is spent.
+    for (;;) {
+      let hit = null;
       for (const t of all) {
-        if (Math.hypot(t.x - hit.x, t.z - hit.z) <= b.splash + (t.kind === 'boss' ? t.r : 0)) {
-          damage(run, t, b.damage);
-        }
+        if (!t.ref.alive) continue;
+        if (t.z < pz - t.r || t.z > b.z + t.r) continue;
+        if (Math.abs(t.x - b.x) > t.r + 0.3) continue;
+        if (!hit || t.z < hit.z) hit = t;
       }
-    } else {
+      if (!hit) break;
+      if (b.kind === 'rocket') {
+        b.ttl = 0;
+        run.events.push({ type: 'explosion', x: hit.x, z: hit.z, radius: b.splash });
+        for (const t of all) {
+          if (Math.hypot(t.x - hit.x, t.z - hit.z) <= b.splash + (t.kind === 'boss' ? t.r : 0)) {
+            damage(run, t, b.damage);
+          }
+        }
+        break;
+      }
+      const hpBefore = hit.ref.hp;
       damage(run, hit, b.damage);
+      b.damage -= hpBefore;
+      if (hit.kind !== 'enemy' || b.damage <= 0) {
+        b.ttl = 0;
+        break;
+      }
     }
   }
   run.bullets = run.bullets.filter((b) => b.ttl > 0);

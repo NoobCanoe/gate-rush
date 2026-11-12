@@ -34,7 +34,7 @@ export function generateLevel(n) {
   const int = (lo, hi) => lo + Math.floor(rand() * (hi - lo + 1));
   const pick = (arr) => arr[Math.floor(rand() * arr.length)];
 
-  const length = 480 + 12 * Math.min(n, 20);
+  const length = 600 + 15 * Math.min(n, 20);
   const maxZ = length - 30;
 
   // Row positions.
@@ -128,6 +128,14 @@ export function generateLevel(n) {
     length,
     theme: Math.floor((n - 1) / 5) % THEME_COUNT,
     items,
+    // A steady stream of enemies for the whole run, on top of the set pieces.
+    flow: {
+      // Rank after rank, close enough together to read as one unbroken column.
+      every: 0.75,
+      lo: Math.min(25, 12 + Math.floor(n / 2)),
+      hi: Math.min(55, 25 + n),
+      hp: 10 + 3 * n,
+    },
     boss: { hp: bossHp(n), dps: 1 + Math.floor(n / 4), big },
   };
 }

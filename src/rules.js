@@ -1,16 +1,16 @@
 // Pure game rules. No browser APIs, no rendering.
 
 export const ROAD_HALF = 5;
-export const RUN_SPEED = 8;
+export const RUN_SPEED = 12;
 export const ARMY_CAP = 99999;
 export const DRAW_CAP = 300;
 
 export const WEAPONS = {
-  rifle: { name: 'Rifle', unlock: 1, interval: 0.45, damage: 10, range: 40, kind: 'bullet' },
-  mg: { name: 'Machine gun', unlock: 2, interval: 0.12, damage: 4, range: 40, kind: 'bullet' },
-  shotgun: { name: 'Shotgun', unlock: 4, interval: 0.7, damage: 30, range: 18, kind: 'spread' },
-  rocket: { name: 'Rocket launcher', unlock: 7, interval: 1.2, damage: 50, range: 45, kind: 'rocket', splash: 4 },
-  laser: { name: 'Laser', unlock: 10, interval: 0.1, damage: 5, range: 50, kind: 'beam' },
+  rifle: { name: 'Rifle', unlock: 1, interval: 0.45, damage: 10, range: 28, kind: 'bullet' },
+  mg: { name: 'Machine gun', unlock: 2, interval: 0.12, damage: 4, range: 28, kind: 'bullet' },
+  shotgun: { name: 'Shotgun', unlock: 4, interval: 0.6, damage: 30, range: 16, kind: 'spread' },
+  rocket: { name: 'Rocket launcher', unlock: 7, interval: 0.8, damage: 34, range: 32, kind: 'rocket', splash: 4.5 },
+  laser: { name: 'Laser', unlock: 10, interval: 0.1, damage: 5, range: 34, kind: 'beam' },
 };
 export const WEAPON_ORDER = ['rifle', 'mg', 'shotgun', 'rocket', 'laser'];
 
