@@ -30,15 +30,18 @@ export function expectedUpgrades(n) {
   const each = Math.floor(UPGRADE_PACE * Math.max(0, n - 2) ** 0.8);
   return { upgrades: { army: each, fireRate: each, damage: each } };
 }
-const UPGRADE_PACE = 0.7;
+const UPGRADE_PACE = 0.9;
+const KILLS_PER_BULLET = 3; // weaker enemies, and more of them
+const MIN_ENEMY_HP = 4;
+const REF_BIAS = 0.7; // how close the reference army is to perfect gate picks (0.5 = middling, 1 = perfect)
 const WAVE_EVERY = 0.75; // seconds between ranks of the stream
 const BOSS_SECONDS = 24; // how long the reference army needs to kill the boss
 const BOSS_SECONDS_BIG = 36;
 
 // Share of the reference army's kill rate that the stream demands.
-const SHARE_BASE = 0.5; // level 1 is gentle
-const SHARE_PER_LEVEL = 0.02;
-const SHARE_MAX = 0.75;
+const SHARE_BASE = 0.4; // level 1 forgives a wrong pick or two
+const SHARE_PER_LEVEL = 0.04;
+const SHARE_MAX = 0.85;
 export function streamShare(n) {
   return Math.min(SHARE_MAX, SHARE_BASE + SHARE_PER_LEVEL * (n - 1));
 }
@@ -82,7 +85,7 @@ export function generateLevel(n) {
   let refTier = 1;
   // Enemies toughen with the reference army, so firepower (army size, tiers,
   // upgrades) always decides how much of the stream gets through.
-  const hpNow = () => Math.max(enemyHp, Math.round(volleyDamage(ref, 'rifle', refSave, refTier) / bulletCount(ref) / 1.5));
+  const hpNow = () => Math.max(MIN_ENEMY_HP, Math.round(volleyDamage(ref, 'rifle', refSave, refTier) / bulletCount(ref) / KILLS_PER_BULLET));
   const rate = () => killRate(ref, 'rifle', refSave, hpNow(), refTier);
   const volley = () => volleyDamage(ref, 'rifle', refSave, refTier);
   const steps = [{ z: 0, count: rate() * WAVE_EVERY * share, hp: hpNow() }];
@@ -124,7 +127,7 @@ export function generateLevel(n) {
       // The reference army takes the middle road between the two outcomes.
       const l = Math.max(1, applyGate(ref, left));
       const r = Math.max(1, applyGate(ref, right));
-      ref = Math.max(refStart, Math.round(Math.sqrt(l * r)));
+      ref = Math.max(refStart, Math.round(Math.max(l, r) ** REF_BIAS * Math.min(l, r) ** (1 - REF_BIAS)));
       steps.push({ z, count: rate() * WAVE_EVERY * share, hp: hpNow() });
       return;
     }

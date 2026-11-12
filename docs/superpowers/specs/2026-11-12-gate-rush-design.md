@@ -217,3 +217,18 @@ the "always overpowered" rule in the first amendment.
   (★ to ★★★★★, +40% damage each) for the rest of the run; a container for the
   weapon already carried gives a tier. Bumping one unopened destroys it for
   nothing. Level 1 containers are all power tiers.
+
+## Amendment 3, 2026-11-12: harder, and more enemies
+
+The user still found it too easy and asked for more enemies.
+
+- Stream enemies are weaker and about three times as numerous: a level has
+  roughly 1,300 to 6,000 of them.
+- Bullets fan out over ten lanes spanning the road, one tracer per soldier up
+  to ten, so a small army's fire covers a whole rank.
+- The reference army now sits closer to perfect gate picks (weight 0.7 on the
+  better side), assumes a faster upgrade pace, and the stream demands 40% of
+  its kill rate on level 1 rising to 85%.
+- Targets (automated players, levels 1–40, buying upgrades): always the better
+  gate wins every level but stops only about 90% of the stream; alternating
+  wins about nine in ten; always the worse gate wins about one in ten.

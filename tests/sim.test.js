@@ -197,8 +197,8 @@ test('a bigger army fires more bullets per volley for the same total damage', ()
     stepRun(run, MAX_STEP, 0, {});
     return run.bullets;
   };
-  assert.equal(volley(2).length, 1);
-  assert.equal(volley(5).length, 2);
+  assert.equal(volley(1).length, 1);
+  assert.equal(volley(5).length, 5);
   const many = volley(200);
   assert.equal(many.length, 10);
   const total = many.reduce((sum, b) => sum + b.damage, 0);

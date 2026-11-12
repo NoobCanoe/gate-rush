@@ -70,14 +70,17 @@ test('the boss is sized to the level', () => {
   assert.ok(generateLevel(30).boss.hp > generateLevel(1).boss.hp * 5);
 });
 
-test('the enemy stream is fixed by the level and thickens along it', () => {
+test('the enemy stream is fixed by the level and toughens along it', () => {
   for (let n = 1; n <= 40; n++) {
     const f = generateLevel(n).flow;
     assert.ok(f.every > 0 && f.every <= 2, `interval L${n}`);
     assert.ok(f.hp > 0);
     assert.ok(f.steps.length >= 6 && f.steps[0].z === 0, `steps L${n}`);
     for (const st of f.steps) assert.ok(st.count > 0 && Number.isFinite(st.count));
-    assert.ok(f.steps[f.steps.length - 1].count > f.steps[0].count * 3, `thickens L${n}`);
+    const first = f.steps[0];
+    const last = f.steps[f.steps.length - 1];
+    assert.ok(last.count >= first.count * 0.7, `stays thick L${n}`);
+    assert.ok(last.hp > first.hp * 3, `toughens L${n}`);
   }
 });
 

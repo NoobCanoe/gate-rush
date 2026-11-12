@@ -339,12 +339,16 @@ function fire(run, h, save) {
   }
   for (const shot of shots) {
     const sx = Math.max(-ROAD_HALF, Math.min(ROAD_HALF, ox + shot.dx));
-    // Each bullet goes for the nearest enemy in its own lane, so fire covers the whole mob.
+    // Bullets fan out over lanes that span the road, so even a small army's
+    // fire covers a whole rank of enemies.
     let at = shot.target || best;
     if (weapon.kind === 'bullet' && shots.length > 1) {
+      const i = shots.indexOf(shot);
+      const laneX = Math.max(-ROAD_HALF, Math.min(ROAD_HALF, run.x - 4.4 + (8.8 * i) / (shots.length - 1)));
+      const reach = Math.max(1.2, 4.4 / shots.length + 0.3);
       let near = null;
       for (const t of all) {
-        if (t.z - run.z > weapon.range || Math.abs(t.x - sx) > 1.2) continue;
+        if (t.z - run.z > weapon.range || Math.abs(t.x - laneX) > reach) continue;
         if (!near || t.z < near.z) near = t;
       }
       if (near) at = near;

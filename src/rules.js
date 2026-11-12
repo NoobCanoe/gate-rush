@@ -108,9 +108,10 @@ export function formatCount(n) {
 
 // Shots per volley for each kind of weapon.
 export const SPREAD_PELLETS = 5;
-export const bulletCount = (army) => Math.max(1, Math.min(10, Math.ceil(army / 3)));
+// One tracer per soldier up to ten, enough to cover the width of the road.
+export const bulletCount = (army) => Math.max(1, Math.min(10, Math.floor(army)));
 export const rocketCount = (army) => Math.max(1, Math.min(4, Math.ceil(army / 15)));
-const REACH = { bullet: 3, spread: 2, rocket: 8, beam: 40 }; // most enemies one shot can deal with
+const REACH = { bullet: 4, spread: 2, rocket: 8, beam: 40 }; // most enemies one shot can deal with
 
 // Enemies per second an army can kill, for enemies with the given health:
 // limited by its damage and by how many shots it gets off.
