@@ -57,8 +57,8 @@ export function generateLevel(n) {
     return { op: 'sub', value: int(2, Math.max(2, Math.floor(addLo / 3))) };
   };
 
-  const squadLo = Math.min(10, 3 + Math.floor(n * 0.4));
-  const squadHi = Math.min(25, 6 + n);
+  const squadLo = Math.min(20, 4 + n);
+  const squadHi = Math.min(45, 8 + 2 * n);
   const barrel = (z, x) => ({
     type: 'barrel',
     z,

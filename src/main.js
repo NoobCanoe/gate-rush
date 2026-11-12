@@ -222,4 +222,4 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || local)) {
 }
 
 // Handle for play-testing from the console.
-window.__game = { get run() { return run; }, get mode() { return mode; }, save, steer, audio };
+window.__game = { get run() { return run; }, get mode() { return mode; }, save, steer, audio, renderer };
