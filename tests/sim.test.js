@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRun, stepRun, prepItem, MAX_STEP } from '../src/sim.js';
-import { ROAD_HALF, RUN_SPEED, startArmy } from '../src/rules.js';
+import { ROAD_HALF, RUN_SPEED, startArmy, volleyDamage } from '../src/rules.js';
 
 // A run on an empty, very long road, to place hand-made items on.
 function bare(save = {}, items = []) {
@@ -187,4 +187,20 @@ test('winning the level before a weapon unlocks announces it', () => {
   assert.equal(win(1), 'mg');
   assert.equal(win(2), null);
   assert.equal(win(3), 'shotgun');
+});
+
+test('a bigger army fires more bullets per volley for the same total damage', () => {
+  const volley = (army) => {
+    const run = bare();
+    run.army = army;
+    run.enemies = [{ x: 0, z: 30, hp: 1e9, alive: true }];
+    stepRun(run, MAX_STEP, 0, {});
+    return run.bullets;
+  };
+  assert.equal(volley(5).length, 1);
+  const many = volley(200);
+  assert.equal(many.length, 6);
+  const total = many.reduce((sum, b) => sum + b.damage, 0);
+  assert.ok(Math.abs(total - volleyDamage(200, 'rifle', {})) < 1e-6);
+  assert.ok(new Set(many.map((b) => b.x.toFixed(2))).size > 1, 'bullets start across the crowd');
 });

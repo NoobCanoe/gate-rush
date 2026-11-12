@@ -255,15 +255,27 @@ function fire(run, h, save) {
     return;
   }
 
-  const aim = Math.atan2(best.x - ox, best.z - oz);
-  const angles = weapon.kind === 'spread' ? SPREAD_ANGLES : [0];
-  for (const a of angles) {
+  // Plain bullets come from across the crowd: more soldiers, more tracers,
+  // same total damage.
+  const shots = [];
+  if (weapon.kind === 'spread') {
+    for (const a of SPREAD_ANGLES) shots.push({ dx: 0, angle: a });
+  } else if (weapon.kind === 'bullet') {
+    const n = Math.max(1, Math.min(6, Math.ceil(run.army / 12)));
+    const half = Math.min(2.5, Math.sqrt(run.army) * 0.2);
+    for (let i = 0; i < n; i++) shots.push({ dx: n === 1 ? 0 : -half + (2 * half * i) / (n - 1), angle: 0 });
+  } else {
+    shots.push({ dx: 0, angle: 0 });
+  }
+  for (const shot of shots) {
+    const sx = Math.max(-ROAD_HALF, Math.min(ROAD_HALF, ox + shot.dx));
+    const aim = Math.atan2(best.x - sx, best.z - oz) + shot.angle;
     run.bullets.push({
-      x: ox,
+      x: sx,
       z: oz,
-      vx: Math.sin(aim + a) * BULLET_SPEED,
-      vz: Math.cos(aim + a) * BULLET_SPEED,
-      damage: total / angles.length,
+      vx: Math.sin(aim) * BULLET_SPEED,
+      vz: Math.cos(aim) * BULLET_SPEED,
+      damage: total / shots.length,
       kind: weapon.kind,
       splash: weapon.splash || 0,
       ttl: (weapon.range + 4) / BULLET_SPEED,

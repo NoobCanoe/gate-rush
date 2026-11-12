@@ -11,3 +11,72 @@ html, body {
   position: fixed; inset: 0; pointer-events: none;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
+
+#ui > * { pointer-events: auto; }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action: manipulation; }
+
+/* ---- HUD ---- */
+.hud { pointer-events: none !important; padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.hud-row { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pill {
+  background: rgba(18, 24, 44, 0.62); border-radius: 999px; padding: 7px 14px;
+  font-weight: 800; font-size: 15px; letter-spacing: 0.04em; min-height: 34px; display: flex; align-items: center; gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.weapon-pill { font-size: 13px; background: rgba(18, 24, 44, 0.45); }
+.coin {
+  display: inline-block; width: 1em; height: 1em; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 35% 30%, #fff3a8, #ffc928 55%, #d98e00); box-shadow: inset 0 0 0 2px rgba(150, 90, 0, 0.45);
+  vertical-align: -0.12em; margin-right: 0.3em;
+}
+.icon-btn {
+  pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; background: rgba(18, 24, 44, 0.62);
+  display: grid; place-items: center; padding: 0;
+}
+.icon-btn svg { width: 22px; height: 22px; }
+.bar { width: 100%; height: 12px; border-radius: 999px; background: rgba(18, 24, 44, 0.5); overflow: hidden; }
+.bar-fill { height: 100%; width: 100%; background: #37d67a; transform-origin: left center; transform: scaleX(0); border-radius: 999px; }
+.bar-fill.boss { background: #ff4d4d; }
+
+/* ---- screens ---- */
+.screen {
+  position: absolute; inset: 0;
+  padding: calc(env(safe-area-inset-top) + 24px) calc(env(safe-area-inset-right) + 22px) calc(env(safe-area-inset-bottom) + 24px) calc(env(safe-area-inset-left) + 22px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center;
+  background: linear-gradient(rgba(16, 22, 44, 0.55), rgba(16, 22, 44, 0.82));
+}
+.screen h1, .screen h2, .screen p { margin: 0; text-wrap: balance; }
+.logo {
+  font-size: clamp(56px, 19vw, 96px); line-height: 0.92; font-weight: 900; letter-spacing: 0.02em;
+  color: #fff; -webkit-text-stroke: 3px #14204a; paint-order: stroke fill;
+  text-shadow: 0 6px 0 #2f7dff, 0 12px 0 rgba(0, 0, 0, 0.25); margin-bottom: 6px !important;
+}
+.screen h2 { font-size: 32px; font-weight: 900; }
+.sub { font-size: 18px; font-weight: 800; color: #9fe4ff; letter-spacing: 0.06em; text-transform: uppercase; }
+.hint { font-size: 15px; line-height: 1.45; color: rgba(255, 255, 255, 0.8); max-width: 30ch; }
+.weapon-name { font-size: 40px !important; color: #fff3a8; }
+.btn {
+  width: min(100%, 300px); min-height: 56px; border-radius: 18px; font-size: 20px; font-weight: 900;
+  background: rgba(255, 255, 255, 0.16); box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+}
+.btn.primary { background: #2f7dff; box-shadow: 0 5px 0 #14409a; }
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3); }
+.stats { width: min(100%, 300px); display: grid; gap: 8px; margin: 6px 0; }
+.stats div { display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 11px 14px; font-size: 16px; }
+.stats b { font-variant-numeric: tabular-nums; font-size: 18px; }
+.result.win h2 { color: #8dffb5; }
+
+.screen.shop { justify-content: flex-start; }
+.wallet { font-size: 26px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.rows { flex: 1 1 auto; min-height: 0; width: min(100%, 380px); overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; display: grid; gap: 9px; align-content: start; padding: 2px; }
+.row {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left;
+  min-height: 62px; padding: 10px 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.14);
+}
+.row:active { background: rgba(255, 255, 255, 0.24); }
+.row.dim { opacity: 0.45; }
+.row-text { display: grid; gap: 2px; min-width: 0; }
+.row-text b { font-size: 16px; }
+.row-text small { font-size: 13px; color: rgba(255, 255, 255, 0.75); }
+.row-cost { flex: none; font-weight: 900; font-size: 17px; font-variant-numeric: tabular-nums; background: rgba(0, 0, 0, 0.28); border-radius: 999px; padding: 6px 12px; }

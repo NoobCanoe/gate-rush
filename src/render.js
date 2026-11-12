@@ -98,6 +98,7 @@ export function createRenderer(canvas) {
     formation.push([Math.cos(a) * r, Math.sin(a) * r]);
   }
   let shownCount = 0;
+  let crowdDepth = 0;
   const armyLabel = makeLabel(256, 96, 1.15);
   armyLabel.sprite.renderOrder = 10;
   scene.add(armyLabel.sprite);
@@ -361,6 +362,7 @@ export function createRenderer(canvas) {
     const s = Math.max(1, 1.7 - n / 180);
     const spacing = 0.31 * s;
     const depth = Math.sqrt(n) * spacing * 1.25;
+    crowdDepth = depth;
     const moving = run.phase === 'run';
     for (let i = 0; i < n; i++) {
       const f = formation[i];
@@ -504,12 +506,15 @@ export function createRenderer(canvas) {
     const sx = (Math.random() - 0.5) * shakeAmount;
     const sy = (Math.random() - 0.5) * shakeAmount;
     const bossView = run.phase === 'boss' || run.phase === 'won';
-    const camX = run.x * 0.4;
-    const back = bossView ? 13 : 10.5;
-    const up = bossView ? 12 : 11;
-    camera.position.lerp(dummy.position.set(camX + sx, up + sy, -(run.z - back)), Math.min(1, dt * 6));
-    camera.position.z = -(run.z - back);
-    camera.lookAt(camX * 0.8, 0.5, -(run.z + (bossView ? 9 : 7)));
+    // Frame the whole crowd: follow its centre and pull back as it grows.
+    const camX = run.x * 0.7;
+    const focusZ = run.z - crowdDepth * 0.55;
+    const back = (bossView ? 12 : 9.5) + crowdDepth * 0.9;
+    const up = (bossView ? 11.5 : 10.5) + crowdDepth * 0.55;
+    dummy.position.set(camX + sx, up + sy, -(focusZ - back));
+    camera.position.lerp(dummy.position, Math.min(1, dt * 5));
+    camera.position.z = -(focusZ - (camera.position.y - sy) * (back / up));
+    camera.lookAt(camera.position.x - sx, 0.5, -(focusZ + (bossView ? 10 : 8) + crowdDepth * 0.3));
     gl.render(scene, camera);
   }
 
