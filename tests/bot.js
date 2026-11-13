@@ -62,8 +62,10 @@ export function playLine(n, save, strategy = 'smart') {
   while (run.phase !== 'won' && run.phase !== 'lost' && run.t < 400) {
     let lane = 1;
     if (strategy === 'fire') lane = -1;
-    else if (strategy === 'smart') {
-      const crate = run.items.find((it) => it.type === 'crate' && it.alive && !it.passed && it.z > run.z && it.z - run.z < 26);
+    else if (strategy === 'smart' || strategy === 'casual') {
+      // 'casual' reacts late, so it gets less time on each container.
+      const reach = strategy === 'smart' ? 26 : 13;
+      const crate = run.items.find((it) => it.type === 'crate' && it.alive && !it.passed && it.z > run.z && it.z - run.z < reach);
       if (crate) lane = -1;
     }
     stepRun(run, MAX_STEP, lane * 0.55, save);

@@ -18,14 +18,24 @@ export const FIRE_SIDE = -1; // left lane: containers
 const LANE_X = ROAD_HALF / 2;
 const CARD_GAP = 2.6; // road units between cards
 const CRATE_GAP = 50;
-const REF_MEN_SHARE = 0.55; // share of the card stream the reference player collects
-const REF_OPEN_SHARE = 0.45; // share of the containers it opens
+const REF_MEN_SHARE = 0.45; // share of the card stream the reference player collects
+// Share of the containers the reference player opens: few at first, so the
+// early levels can be won on soldiers alone; more later, so firepower matters.
+const refOpenShare = (n) => Math.min(0.6, 0.25 + 0.04 * (n - 1));
+// This mode starts gently and reaches full pressure around level 16.
+export function lineEase(n) {
+  return Math.min(1, EASE_BASE + EASE_PER_LEVEL * (n - 1));
+}
+const EASE_BASE = 0.55;
+const EASE_PER_LEVEL = 0.03;
+const CRATE_VOLLEYS = 0.8; // container toughness, in reference volleys
 const STEP = 40; // how often the horde is re-sized along the road
 
 export function generateLineLevel(n, unlockLevel = n) {
   const rand = mulberry32(n * 104729 + 71);
   const length = 600 + 15 * Math.min(n, 20);
-  const share = streamShare(n);
+  const ease = lineEase(n);
+  const share = streamShare(n) * ease;
   const refSave = expectedUpgrades(n);
   const weapons = unlockedWeapons(unlockLevel).filter((w) => w !== 'rifle');
 
@@ -33,9 +43,8 @@ export function generateLineLevel(n, unlockLevel = n) {
   // The card stream.
   let i = 0;
   for (let z = 20; z <= length - 40; z += CARD_GAP, i++) {
-    let gate = { op: 'add', value: 1 };
-    if (i % 11 === 7) gate = { op: 'sub', value: 2 }; // step out of the lane to dodge these
-    else if (i % 8 === 3) gate = { op: 'add', value: 3 };
+    // Every card helps: mostly +1, with a +3 every so often.
+    const gate = { op: 'add', value: i % 8 === 3 ? 3 : 1 };
     items.push({ type: 'card', z: Math.round(z * 10) / 10, side: MEN_SIDE, gate });
   }
 
@@ -52,19 +61,19 @@ export function generateLineLevel(n, unlockLevel = n) {
   for (let z = STEP; z <= length; z += STEP) {
     while (cardIndex < cards.length && cards[cardIndex].z <= z) {
       const g = cards[cardIndex].gate;
-      ref += (g.op === 'add' ? g.value : 0) * REF_MEN_SHARE; // the reference dodges the bad cards
+      ref += g.value * REF_MEN_SHARE;
       cardIndex++;
     }
     while (nextCrate <= z && nextCrate <= length - 40) {
       const kind = crateIndex % 3 === 2 ? 'coins' : 'power';
       const crate = {
         type: 'crate', z: nextCrate, x: FIRE_SIDE * LANE_X, side: FIRE_SIDE, weapon: null,
-        // Two to three seconds of fire from the lanes that can reach it.
-        hp: Math.max(20, Math.round(volleyDamage(Math.round(ref), 'rifle', refSave, refTier) * (2.0 + rand() * 0.8))),
+        // About a second of fire from the lanes that can reach it.
+        hp: Math.max(20, Math.round(volleyDamage(Math.round(ref), 'rifle', refSave, refTier) * (CRATE_VOLLEYS + rand() * 0.4))),
       };
       if (kind === 'coins') crate.coins = 10 + 3 * n;
       else if (weapons.length > 0 && crateIndex % 4 === 1) crate.weapon = weapons[Math.floor(rand() * weapons.length)];
-      if (kind === 'power') refTier = Math.min(MAX_TIER, refTier + REF_OPEN_SHARE);
+      if (kind === 'power') refTier = Math.min(MAX_TIER, refTier + refOpenShare(n));
       items.push(crate);
       crateIndex++;
       nextCrate += CRATE_GAP;
@@ -84,8 +93,10 @@ export function generateLineLevel(n, unlockLevel = n) {
     items,
     flow: { every: WAVE_EVERY, hp: hpNow(), steps },
     boss: {
-      hp: Math.round(refDps * (big ? BOSS_SECONDS_BIG : BOSS_SECONDS)),
-      dps: Math.max(1, Math.round(refArmy * 0.04)),
+      hp: Math.round(refDps * (big ? BOSS_SECONDS_BIG : BOSS_SECONDS) * ease),
+      // The boss hits harder on later levels, so a slow kill (too little
+      // firepower) is what loses them.
+      dps: Math.max(1, Math.round(refArmy * Math.min(0.2, 0.04 + 0.012 * (n - 1)))),
       big,
     },
     refArmy,

@@ -18,9 +18,8 @@ test('one lane is a constant stream of cards, mostly +1', () => {
       assert.ok(cards[i].z - cards[i - 1].z <= 4, `gap in the stream L${n}`);
     }
     const plusOne = cards.filter((c) => c.gate.op === 'add' && c.gate.value === 1).length;
-    const bad = cards.filter((c) => c.gate.op === 'sub').length;
     assert.ok(plusOne / cards.length > 0.7, `mostly +1 L${n}`);
-    assert.ok(bad >= 5 && bad / cards.length < 0.15, `a few cards to dodge L${n}: ${bad}`);
+    assert.ok(cards.every((c) => c.gate.op === 'add' && c.gate.value >= 1), `no card ever costs soldiers L${n}`);
   }
 });
 
