@@ -20,7 +20,10 @@ const persist = () => writeSave(storage, save);
 audio.setMuted(save.muted);
 
 let mode = 'title'; // title | run | paused | ending | menu
-let run = createRun(save.level, save);
+let gameMode = save.mode; // 'rush' (Gate Rush) or 'line' (Hold the Line)
+const levelNow = () => (gameMode === 'line' ? save.lineLevel : save.level);
+const showShop = () => ui.showShop(save, levelNow(), gameMode === 'line' ? 'Hold the Line' : 'Gate Rush');
+let run = createRun(levelNow(), save, gameMode);
 let result = null;
 let endedLevel = 0;
 let endTimer = 0;
@@ -30,24 +33,29 @@ let hitTimer = 0;
 let paused = false;
 
 const ui = createUI(document.getElementById('ui'), {
-  onPlay() {
+  onPlay(chosen) {
     audio.unlock();
     audio.play('tap');
+    if (chosen === 'rush' || chosen === 'line') {
+      gameMode = chosen;
+      save.mode = chosen;
+      persist();
+    }
     startRun();
   },
   onShop() {
     audio.unlock();
     audio.play('tap');
-    ui.showShop(save);
+    showShop();
   },
   onContinue() {
     audio.unlock();
     audio.play('tap');
     if (result && result.newWeapon) {
       audio.play('weapon');
-      ui.showNewWeapon(result.newWeapon, () => { audio.play('tap'); ui.showShop(save); });
+      ui.showNewWeapon(result.newWeapon, () => { audio.play('tap'); showShop(); });
     } else {
-      ui.showShop(save);
+      showShop();
     }
   },
   onBuy(kind, weaponId) {
@@ -55,7 +63,7 @@ const ui = createUI(document.getElementById('ui'), {
     if (buyUpgrade(save, kind, weaponId)) {
       persist();
       audio.play('coin');
-      ui.showShop(save);
+      showShop();
     }
   },
   onPause() {
@@ -82,7 +90,7 @@ const ui = createUI(document.getElementById('ui'), {
     audio.play('tap');
     if (mode !== 'paused') return;
     mode = 'menu';
-    ui.showShop(save);
+    showShop();
   },
   onAskReset() {
     audio.unlock();
@@ -94,7 +102,8 @@ const ui = createUI(document.getElementById('ui'), {
     audio.play('tap');
     resetSave(save);
     persist();
-    run = createRun(save.level, save);
+    gameMode = save.mode;
+    run = createRun(levelNow(), save, gameMode);
     renderer.setLevel(run.level);
     mode = 'title';
     ui.showTitle(save);
@@ -116,13 +125,14 @@ const ui = createUI(document.getElementById('ui'), {
 ui.setMuted(save.muted);
 
 function startRun() {
-  run = createRun(save.level, save); // fresh, so it includes upgrades bought since the last run
+  run = createRun(levelNow(), save, gameMode); // fresh, so it includes upgrades bought since the last run
   renderer.setLevel(run.level);
   steer.reset();
   result = null;
   hitDamage = 0;
   mode = 'run';
   ui.showHud(run);
+  if (run.mode === 'line') ui.showTip('Right lane: more soldiers · Left lane: shoot containers for firepower');
 }
 
 function pauseRun() {
@@ -168,6 +178,11 @@ function handleEvents() {
         renderer.burst(e.x, e.z, 0x2c3340, 8);
         renderer.popNumber(e.x, e.z, 'Missed!', '#ff9a9a', 3, 1.2);
         audio.play('gate-bad');
+        break;
+      case 'card':
+        renderer.popNumber(e.x, e.z + 1, e.label, e.good ? '#9fe4ff' : '#ff9a9a', 2.6, e.good ? 1 : 1.5);
+        if (!e.good) renderer.shake(0.25);
+        audio.play(e.good ? 'card' : 'gate-bad');
         break;
       case 'gate':
         renderer.popNumber(e.x, e.z + 2, e.label, e.good ? '#9fe4ff' : '#ff9a9a', 3.2, 1.7);
@@ -217,7 +232,10 @@ function endRun() {
   result = runResult(run, save);
   endedLevel = run.level.number;
   save.coins += result.coins;
-  if (result.won) save.level += 1;
+  if (result.won) {
+    if (run.mode === 'line') save.lineLevel += 1;
+    else save.level += 1;
+  }
   persist();
   mode = 'ending';
   endTimer = result.won ? 1.8 : 1.1;

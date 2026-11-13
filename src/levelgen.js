@@ -9,7 +9,7 @@ import {
   ROAD_HALF, RUN_SPEED, applyGate, unlockedWeapons, volleyDamage, fireInterval, killRate, startArmy, bulletCount,
 } from './rules.js';
 
-function mulberry32(seed) {
+export function mulberry32(seed) {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -31,12 +31,12 @@ export function expectedUpgrades(n) {
   return { upgrades: { army: each, fireRate: each, damage: each } };
 }
 const UPGRADE_PACE = 0.9;
-const KILLS_PER_BULLET = 3; // weaker enemies, and more of them
-const MIN_ENEMY_HP = 4;
+export const KILLS_PER_BULLET = 3; // weaker enemies, and more of them
+export const MIN_ENEMY_HP = 4;
 const REF_BIAS = 0.7; // how close the reference army is to perfect gate picks (0.5 = middling, 1 = perfect)
-const WAVE_EVERY = 0.75; // seconds between ranks of the stream
-const BOSS_SECONDS = 24; // how long the reference army needs to kill the boss
-const BOSS_SECONDS_BIG = 36;
+export const WAVE_EVERY = 0.75; // seconds between ranks of the stream
+export const BOSS_SECONDS = 24; // how long the reference army needs to kill the boss
+export const BOSS_SECONDS_BIG = 36;
 
 // Share of the reference army's kill rate that the stream demands.
 const SHARE_BASE = 0.4; // level 1 forgives a wrong pick or two
@@ -164,6 +164,7 @@ export function generateLevel(n) {
   const refDps = volley() / fireInterval('rifle', refSave);
   return {
     number: n,
+    mode: 'rush',
     length,
     theme: Math.floor((n - 1) / 5) % THEME_COUNT,
     items,

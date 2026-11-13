@@ -56,7 +56,7 @@ test('every precached file exists in the project', () => {
     assert.ok(existsSync(new URL('../' + f, import.meta.url)), f);
   }
   // and every source module is precached
-  for (const m of ['rules', 'levelgen', 'sim', 'save', 'input', 'render', 'audio', 'ui', 'main']) {
+  for (const m of ['rules', 'levelgen', 'linegen', 'sim', 'save', 'input', 'render', 'audio', 'ui', 'main']) {
     assert.ok(list.includes(`src/${m}.js`), m);
   }
 });

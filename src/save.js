@@ -11,6 +11,8 @@ export function newSave() {
   return {
     version: SAVE_VERSION,
     level: 1,
+    lineLevel: 1, // progress in the Hold the Line mode
+    mode: 'rush', // the mode played last
     coins: 0,
     upgrades: { army: 0, fireRate: 0, damage: 0, coins: 0 },
     weaponLevels: {},
@@ -40,6 +42,9 @@ export function loadSave(storage) {
 
   const level = count(raw.level, 1);
   if (level !== null) save.level = Math.min(level, MAX_LEVEL);
+  const lineLevel = count(raw.lineLevel, 1);
+  if (lineLevel !== null) save.lineLevel = Math.min(lineLevel, MAX_LEVEL);
+  if (raw.mode === 'line') save.mode = 'line';
   const coins = count(raw.coins, 0);
   if (coins !== null) save.coins = coins;
   if (raw.upgrades && typeof raw.upgrades === 'object') {

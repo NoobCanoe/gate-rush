@@ -72,3 +72,24 @@ test('starting over wipes progress in place but keeps the sound setting', async 
   assert.equal(same, s);
   assert.deepEqual(s, { ...newSave(), muted: true });
 });
+
+test('lane-mode progress is saved, sanitised and reset', async () => {
+  const { resetSave } = await import('../src/save.js');
+  assert.equal(newSave().lineLevel, 1);
+  assert.equal(newSave().mode, 'rush');
+  const s = newSave();
+  s.lineLevel = 6; s.mode = 'line';
+  const storage = storageWith(null);
+  writeSave(storage, s);
+  assert.deepEqual(loadSave(storage), s);
+  const bad = loadSave(storageWith(JSON.stringify({ version: 1, lineLevel: 'x', mode: 'banana' })));
+  assert.equal(bad.lineLevel, 1);
+  assert.equal(bad.mode, 'rush');
+  // a save written before lane mode existed still loads
+  const old = loadSave(storageWith(JSON.stringify({ version: 1, level: 7, coins: 50 })));
+  assert.equal(old.level, 7);
+  assert.equal(old.lineLevel, 1);
+  resetSave(s);
+  assert.equal(s.lineLevel, 1);
+  assert.equal(s.mode, 'rush');
+});

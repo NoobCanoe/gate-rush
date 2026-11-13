@@ -3,11 +3,11 @@
 // for a refresh: every file is downloaded again and, only if all of them
 // arrive, the cache is replaced as a whole. The new version is used from the
 // next launch, so one launch never mixes old and new files.
-const CACHE = 'gate-rush-v2';
+const CACHE = 'gate-rush-v3';
 const STAGING = 'gate-rush-staging';
 const FILES = [
   './', 'index.html', 'style.css', 'manifest.webmanifest',
-  'src/main.js', 'src/rules.js', 'src/levelgen.js', 'src/sim.js', 'src/save.js',
+  'src/main.js', 'src/rules.js', 'src/levelgen.js', 'src/linegen.js', 'src/sim.js', 'src/save.js',
   'src/input.js', 'src/render.js', 'src/audio.js', 'src/ui.js',
   'vendor/three.module.min.js', 'icons/icon-180.png', 'icons/icon-512.png',
 ];

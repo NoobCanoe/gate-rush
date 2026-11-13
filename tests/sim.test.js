@@ -360,3 +360,53 @@ test('a wave keeps its ranks instead of bunching onto one spot', () => {
   assert.ok(run.enemies.length >= 30);
   assert.ok(columns.size >= 5, `only ${columns.size} columns`);
 });
+
+// ---- lane mode ----
+test('a card only counts in its own lane', () => {
+  const card = { type: 'card', z: 6, side: 1, gate: { op: 'add', value: 1 } };
+  const inLane = bare({}, [card]);
+  advance(inLane, 1, 0.6);
+  assert.equal(inLane.army, 6);
+  assert.ok(types(inLane).includes('card'));
+  const otherLane = bare({}, [card]);
+  advance(otherLane, 1, -0.6);
+  assert.equal(otherLane.army, 5);
+  assert.ok(!types(otherLane).includes('card'));
+});
+
+test('a lane container can only be shot from its own lane', () => {
+  const crate = { type: 'crate', z: 20, x: -2.5, side: -1, weapon: null, hp: 5 };
+  const wrong = bare({}, [crate]);
+  wrong.army = 500;
+  advance(wrong, 1.2, 0.6);
+  assert.equal(wrong.tier, 1);
+  const right = bare({}, [crate]);
+  right.army = 500;
+  advance(right, 1.2, -0.6);
+  assert.equal(right.tier, 2);
+});
+
+test('a run can be started in lane mode', () => {
+  const run = createRun(2, { level: 5 }, 'line');
+  assert.equal(run.mode, 'line');
+  assert.equal(run.level.mode, 'line');
+  assert.ok(run.items.some((i) => i.type === 'card'));
+  assert.equal(createRun(2, {}).mode, 'rush');
+});
+
+test('winning a lane level announces no weapon unlock', () => {
+  const run = createRun(1, {}, 'line');
+  run.items = [];
+  run.z = run.level.length - 0.01;
+  run.army = 50000;
+  advance(run, 60);
+  assert.equal(run.phase, 'won');
+  assert.equal(runResult(run, {}).newWeapon, null);
+});
+
+test('a coin container pays coins instead of power', () => {
+  const run = bare({}, [{ type: 'crate', z: 15, x: 0, weapon: null, hp: 1, coins: 40 }]);
+  advance(run, 1);
+  assert.equal(run.coins, 40);
+  assert.equal(run.tier, 1);
+});

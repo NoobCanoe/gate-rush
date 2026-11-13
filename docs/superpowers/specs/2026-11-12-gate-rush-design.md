@@ -232,3 +232,24 @@ The user still found it too easy and asked for more enemies.
 - Targets (automated players, levels 1–40, buying upgrades): always the better
   gate wins every level but stops only about 90% of the stream; alternating
   wins about nine in ten; always the worse gate wins about one in ten.
+
+## Amendment 4, 2026-11-13: a second mode, "Hold the Line"
+
+The user asked for a second version in which the army stays put and must
+choose between adding soldiers and adding firepower. Built as a second mode
+inside Gate Rush, original in look and name.
+
+- **Mode picker** on the title screen: Gate Rush and Hold the Line. Coins,
+  upgrades and unlocked weapons are shared; each mode has its own level number.
+- **Two lanes.** The right lane is a constant stream of cards, mostly +1 with
+  some +3 and a few −2 to step around. The left lane holds containers with hit
+  counts that give a weapon, a power tier or coins when shot open. Cards only
+  count, and containers can only be shot, from their own lane.
+- **The horde** comes down the whole road, sized against a reference player
+  who splits their time between the lanes. Each level ends in a boss.
+- **Targets (automated players, buying upgrades):** stepping across for each
+  container and back wins levels 1–30; staying in the soldier lane reaches the
+  boss but loses to it; staying in the container lane is overrun at once.
+- Technically it reuses the same simulation and renderer: the camera is locked
+  to the army, so the army appears to stand still while the road streams past.
+  Cards share one mesh shape and one material per label.

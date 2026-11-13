@@ -83,6 +83,7 @@ export function createAudio() {
     'gate-bad': () => notes('sawtooth', [330, 233, 165], 0.08, 0.16, 0.18),
     kill: () => tone('triangle', 420, 140, 0.09, 0.18),
     barrel: () => Math.max(noise(0.25, 0.4, 900), tone('sine', 150, 50, 0.22, 0.35)),
+    card: () => tone('triangle', 880, 1175, 0.05, 0.12),
     coin: () => notes('square', [1319, 1760], 0.05, 0.09, 0.1),
     weapon: () => notes('square', [392, 523, 659, 1047], 0.07, 0.14, 0.14),
     'boss-hit': () => tone('sine', 110, 60, 0.08, 0.3),

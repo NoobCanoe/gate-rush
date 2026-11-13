@@ -5,6 +5,7 @@ import {
   volleyDamage, fireInterval, coinMult, WEAPON_ORDER, MAX_TIER, bulletCount, rocketCount,
 } from './rules.js';
 import { generateLevel } from './levelgen.js';
+import { generateLineLevel } from './linegen.js';
 
 export const MAX_STEP = 1 / 30;
 const MAX_FRAME = 0.25;
@@ -28,10 +29,14 @@ export function prepItem(item) {
   return { ...item, alive: true, passed: false, maxHp: item.hp };
 }
 
-export function createRun(levelNumber, save) {
-  const level = generateLevel(levelNumber);
+export function createRun(levelNumber, save, mode = 'rush') {
+  // Lane-mode containers only offer weapons already unlocked in the main mode.
+  const level = mode === 'line'
+    ? generateLineLevel(levelNumber, (save && save.level) || 1)
+    : generateLevel(levelNumber);
   return {
     level,
+    mode: level.mode,
     phase: 'run',
     t: 0,
     x: 0,
@@ -120,6 +125,16 @@ function crossItems(run) {
     if (it.passed || it.z > run.z) continue;
     it.passed = true;
     if (!it.alive) continue;
+    if (it.type === 'card') {
+      // A lane card: only counts for an army standing in its lane.
+      if ((run.x < 0 ? -1 : 1) !== it.side) continue;
+      run.army = applyGate(run.army, it.gate);
+      it.alive = false;
+      run.events.push({
+        type: 'card', good: gateIsGood(it.gate), label: gateLabel(it.gate), army: run.army, x: run.x, z: it.z,
+      });
+      continue;
+    }
     if (it.type === 'gates') {
       const gate = run.x < 0 ? it.left : it.right;
       run.army = applyGate(run.army, gate);
@@ -241,11 +256,14 @@ function moveBoss(run, h) {
 // Everything that can be shot, as { kind, ref, x, z, r }.
 function targets(run) {
   const out = [];
+  const side = run.x < 0 ? -1 : 1;
   for (const e of run.enemies) {
     if (e.alive && e.z > run.z) out.push({ kind: 'enemy', ref: e, x: e.x, z: e.z, r: RADIUS.enemy });
   }
   for (const it of run.items) {
     if ((it.type === 'barrel' || it.type === 'crate') && it.alive && !it.passed) {
+      // Lane-mode containers can only be shot from their own lane.
+      if (it.side && it.side !== side) continue;
       out.push({ kind: it.type, ref: it, x: it.x, z: it.z, r: RADIUS[it.type] });
     }
   }
@@ -271,6 +289,12 @@ function damage(run, target, amount) {
     run.coins += ref.coins;
     run.events.push({ type: 'barrelDown', x: target.x, z: target.z, coins: ref.coins });
   } else if (target.kind === 'crate') {
+    if (ref.coins) {
+      // A coin container.
+      run.coins += ref.coins;
+      run.events.push({ type: 'barrelDown', x: target.x, z: target.z, coins: ref.coins });
+      return;
+    }
     // A new weapon, or a power tier for the one already carried.
     if (ref.weapon && ref.weapon !== run.weapon) run.weapon = ref.weapon;
     else run.tier = Math.min(MAX_TIER, run.tier + 1);
@@ -348,7 +372,8 @@ function fire(run, h, save) {
       const reach = Math.max(1.2, 4.4 / shots.length + 0.3);
       let near = null;
       for (const t of all) {
-        if (t.z - run.z > weapon.range || Math.abs(t.x - laneX) > reach) continue;
+        // Containers draw fire from the neighbouring lanes too.
+        if (t.z - run.z > weapon.range || Math.abs(t.x - laneX) > reach + (t.kind === 'crate' ? 1 : 0)) continue;
         if (!near || t.z < near.z) near = t;
       }
       if (near) at = near;
@@ -417,6 +442,6 @@ export function runResult(run, save) {
     coins: Math.round(base * coinMult(save)),
     kills: run.kills,
     armyLeft: run.army,
-    newWeapon: won && next ? next : null,
+    newWeapon: won && next && run.mode !== 'line' ? next : null,
   };
 }

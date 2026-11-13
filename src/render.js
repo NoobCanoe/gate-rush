@@ -143,6 +143,36 @@ export function createRenderer(canvas) {
   }
   let numberCursor = 0;
 
+  // --- lane cards (Hold the Line) ---
+  const cardGeometry = new THREE.PlaneGeometry(ROAD_HALF - 0.5, 1.7);
+  const cardMaterials = new Map();
+  function cardMaterial(label, good) {
+    if (cardMaterials.has(label)) return cardMaterials.get(label);
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 96;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = good ? 'rgba(43,140,255,0.62)' : 'rgba(255,59,59,0.66)';
+    ctx.fillRect(0, 0, 256, 96);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(3, 3, 250, 90);
+    ctx.font = FONT.replace('%', 70);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 12;
+    ctx.strokeStyle = 'rgba(20,24,40,0.9)';
+    ctx.strokeText(label, 128, 50);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, 128, 50);
+    const map = new THREE.CanvasTexture(c);
+    map.colorSpace = THREE.SRGBColorSpace;
+    const mat = new THREE.MeshBasicMaterial({ map, transparent: true, side: THREE.DoubleSide, depthWrite: false, fog: false });
+    cardMaterials.set(label, mat);
+    return mat;
+  }
+
   // --- per-level objects ---
   let levelGroup = null;
   let itemViews = [];
@@ -183,6 +213,7 @@ export function createRenderer(canvas) {
     if (levelGroup) {
       scene.remove(levelGroup);
       levelGroup.traverse((o) => {
+        if (o.geometry === cardGeometry) return; // shared across levels
         if (o.geometry) o.geometry.dispose();
         if (o.material) {
           if (o.material.map) o.material.map.dispose();
@@ -269,6 +300,14 @@ export function createRenderer(canvas) {
     const g = new THREE.Group();
     g.position.set(0, 0, -it.z);
     levelGroup.add(g);
+    if (it.type === 'card') {
+      // Lane cards share one material per label, so a stream of hundreds stays cheap.
+      const label = gateLabel(it.gate);
+      const mesh = new THREE.Mesh(cardGeometry, cardMaterial(label, gateIsGood(it.gate)));
+      mesh.position.set((it.side * ROAD_HALF) / 2, 0.95, 0);
+      g.add(mesh);
+      return { group: g, shared: true };
+    }
     if (it.type === 'gates') {
       [[it.left, -1], [it.right, 1]].forEach(([gate, sx]) => {
         const good = gateIsGood(gate);
@@ -349,7 +388,7 @@ export function createRenderer(canvas) {
         const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.6), new THREE.MeshLambertMaterial({ color }));
         gun.add(gem);
       }
-      return { group: g, label, gun, name: it.weapon ? WEAPONS[it.weapon].name : 'POWER ★' };
+      return { group: g, label, gun, name: it.coins ? 'COINS' : it.weapon ? WEAPONS[it.weapon].name : 'POWER ★' };
     }
     return { group: g }; // squads have no static view
   }
@@ -424,12 +463,12 @@ export function createRenderer(canvas) {
       const it = run.items[i];
       const view = itemViews[i];
       if (!view) continue;
-      const far = it.z - run.z > 175 || it.z - run.z < -12;
+      const far = it.z - run.z > (it.type === 'card' ? 90 : 175) || it.z - run.z < -12;
       view.group.visible = it.alive && !far && it.type !== 'squad';
       if (!view.group.visible) continue;
       if (it.type === 'barrel') view.label.set(formatCount(Math.ceil(it.hp)));
       if (it.type === 'crate') {
-        view.label.set(view.name + '\n' + formatCount(Math.ceil(it.hp)), '#fff3a8');
+        view.label.set(view.name + '\n' + formatCount(Math.ceil(it.hp)), it.coins ? '#ffd23f' : '#fff3a8');
         view.gun.rotation.y = time * 2;
       }
     }

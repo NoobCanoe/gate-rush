@@ -18,7 +18,7 @@ const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="curr
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-const hasProgress = (save) => save.level > 1 || save.coins > 0
+const hasProgress = (save) => save.level > 1 || save.lineLevel > 1 || save.coins > 0
   || Object.values(save.upgrades).some((v) => v > 0) || Object.keys(save.weaponLevels).length > 0;
 
 export function createUI(root, handlers) {
@@ -34,6 +34,7 @@ export function createUI(root, handlers) {
       </div>
       <div class="bar"><div class="bar-fill" data-hud="bar"></div></div>
       <div class="pill weapon-pill" data-hud="weapon"></div>
+      <div class="tip" data-hud="tip" hidden></div>
     </div>
     <div class="screen" hidden></div>`;
   const hud = root.querySelector('.hud');
@@ -54,7 +55,7 @@ export function createUI(root, handlers) {
     if (!btn || btn.disabled) return;
     const action = btn.dataset.action;
     if (action === 'mute') handlers.onToggleMute();
-    else if (action === 'play') handlers.onPlay();
+    else if (action === 'play') handlers.onPlay(btn.dataset.mode || undefined);
     else if (action === 'shop') handlers.onShop();
     else if (action === 'continue') handlers.onContinue();
     else if (action === 'pause') handlers.onPause();
@@ -106,10 +107,13 @@ export function createUI(root, handlers) {
       hud.hidden = true;
       setScreen(`
         <h1 class="logo">GATE<br>RUSH</h1>
-        <p class="sub">Level ${save.level}</p>
-        <button class="btn primary" data-action="play">Play</button>
+        <button class="btn primary mode" data-action="play" data-mode="rush">
+          <b>Gate Rush</b><small>Level ${save.level} · run the road and pick the better gate</small>
+        </button>
+        <button class="btn primary mode alt" data-action="play" data-mode="line">
+          <b>Hold the Line</b><small>Level ${save.lineLevel} · stand your ground: soldiers or firepower?</small>
+        </button>
         ${hasProgress(save) ? '<button class="btn" data-action="shop">Upgrades</button>' : ''}
-        <p class="hint">Drag to steer. Pick the better gate,<br>and shoot containers open for more power.</p>
         ${hasProgress(save) ? '<button class="link" data-action="ask-reset">Start over</button>' : ''}`, 'title');
     },
 
@@ -133,12 +137,12 @@ export function createUI(root, handlers) {
       hud.hidden = true;
       setScreen(`
         <h2>Start over?</h2>
-        <p class="hint">This erases your ${formatCount(save.coins)} coins, all upgrades and your progress to level ${save.level}. It can't be undone.</p>
+        <p class="hint">This erases your ${formatCount(save.coins)} coins, all upgrades and your progress in both modes (levels ${save.level} and ${save.lineLevel}). It can't be undone.</p>
         <button class="btn danger" data-action="reset">Erase everything</button>
         <button class="btn primary" data-action="title">Keep playing</button>`, 'confirm');
     },
 
-    showShop(save) {
+    showShop(save, playLevel = save.level, modeName = 'Gate Rush') {
       hud.hidden = true;
       const list = screen.querySelector('.rows');
       const scroll = list ? list.scrollTop : 0;
@@ -146,7 +150,8 @@ export function createUI(root, handlers) {
         <h2>Upgrades</h2>
         <div class="wallet"><span class="coin"></span>${formatCount(save.coins)}</div>
         <div class="rows">${shopRows(save)}</div>
-        <button class="btn primary" data-action="play">Play level ${save.level}</button>`, 'shop');
+        <button class="btn primary" data-action="play">Play level ${playLevel}</button>
+        <button class="link" data-action="title">${esc(modeName)} · change mode</button>`, 'shop');
       screen.querySelector('.rows').scrollTop = scroll;
     },
 
@@ -182,7 +187,20 @@ export function createUI(root, handlers) {
       screen.hidden = true;
       screen.innerHTML = '';
       hud.hidden = false;
+      ui.showTip('');
       ui.updateHud(run);
+    },
+
+    // A short instruction under the HUD; fades out after a few seconds.
+    showTip(text) {
+      const tip = el('tip');
+      tip.hidden = !text;
+      tip.textContent = text;
+      if (text) {
+        tip.style.animation = 'none';
+        void tip.offsetWidth; // restart the fade
+        tip.style.animation = '';
+      }
     },
 
     updateHud(run) {

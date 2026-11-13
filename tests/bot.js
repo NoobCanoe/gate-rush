@@ -52,3 +52,23 @@ export function spendCoins(save) {
 }
 
 export const freshSave = () => ({ level: 1, coins: 0, upgrades: {}, weaponLevels: {} });
+
+// ---- Hold the Line bots ----
+// 'men': never leaves the card lane. 'fire': never leaves the container lane.
+// 'smart': collects cards, steps across for each container, steps back.
+export function playLine(n, save, strategy = 'smart') {
+  const run = createRun(n, save, 'line');
+  let armyAtBoss = null;
+  while (run.phase !== 'won' && run.phase !== 'lost' && run.t < 400) {
+    let lane = 1;
+    if (strategy === 'fire') lane = -1;
+    else if (strategy === 'smart') {
+      const crate = run.items.find((it) => it.type === 'crate' && it.alive && !it.passed && it.z > run.z && it.z - run.z < 26);
+      if (crate) lane = -1;
+    }
+    stepRun(run, MAX_STEP, lane * 0.55, save);
+    run.events.length = 0;
+    if (armyAtBoss === null && run.phase === 'boss') armyAtBoss = run.army;
+  }
+  return { run, result: run.phase === 'won' || run.phase === 'lost' ? runResult(run, save) : null, armyAtBoss };
+}
